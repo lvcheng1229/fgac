@@ -3,13 +3,36 @@
 // 2. find a better way to compute the end points
 // 3. unroll
 // 4. find the best block mode
+// 5. swap function
+// 6. dual plane
+// 7. wave instruction optimization
+// 8. minuint16 finalize block mode
+// 9. support astc 8*8, current only support 6*6 and 4*4
 
-#define GROUP_SIZE 8
-#define MAX_MIP_NUM 14
-#define BLOCK_SIZE (8 * 8) //TODO:
-#define IS_NORMALMAP 0
-#define HAS_ALPHA 1
-#define SMALL_VALUE 1e-6
+#include "common.hlsl"
+#include "ise.hlsl"
+#include "weight_ise.hlsl"
+
+uint sum(uint3 color)
+{
+	return color.r + color.g + color.b;
+}
+
+// todo: remove these functions
+void swap(inout float4 lhs, inout float4 rhs)
+{
+	float4 tmp = lhs;
+	lhs = rhs;
+	rhs = tmp;
+}
+
+void swap(inout uint4 lhs, inout uint4 rhs)
+{
+	uint4 tmp = lhs;
+	lhs = rhs;
+	rhs = tmp;
+}
+
 
 SamplerState gSamPointWarp : register(s0, space1000);
 SamplerState gSamLinearWarp : register(s4, space1000);
@@ -29,29 +52,13 @@ cbuffer fgacConstBuffer : register(b0)
     uint2 m_blockSize;
 }
 
-uint PackTexel(float4 texel)
-{
-    uint4 packedTexel = (uint4)texel;
-    return (packedTexel.x << 0) | (packedTexel.x << 8) | (packedTexel.x << 16) | (packedTexel.x << 24);
-}
-
-float4 UnpackTexel(uint packedTexel)
-{
-	uint4 unpackedTexel;
-	unpackedTexel.x = (packedTexel >> 0) & 0xff;
-	unpackedTexel.y = (packedTexel >> 8) & 0xff;
-	unpackedTexel.z = (packedTexel >> 16) & 0xff;
-	unpackedTexel.w = (packedTexel >> 24) & 0xff;
-	return (float4)unpackedTexel;
-}
-
 // TODO: static const offset array
 float4 GetTexel(uint3 blockPixelStartPos, float2 mipInvSize, uint subBlockIndex)
 {
     uint y = subBlockIndex / m_blockSize.x;
     uint x = subBlockIndex - y * m_blockSize.x;
     uint2 pixelPos = uint2(x, y) + blockPixelStartPos.xy;
-    float2 pixelUV = pixePos * mipInvSize;
+    float2 pixelUV = pixelPos * mipInvSize;
     float4 texel = inputTexture.SampleLevel(gSamPointWarp, pixelUV, blockPixelStartPos.z);
 #if IS_NORMALMAP
     texel.z = 1.0f;
@@ -59,6 +66,10 @@ float4 GetTexel(uint3 blockPixelStartPos, float2 mipInvSize, uint subBlockIndex)
 #endif
     return texel;
 }
+
+/*
+* MaxAccumulationPixelDirection BEGIN
+*/
 
 void FindMinMaxFromBlock(const uint texelBlock[BLOCK_SIZE], float4 pixelMean, float4 maxDir, out float4 endPoint0, out float4 endPoint1)
 {
@@ -110,9 +121,9 @@ void MaxAccumulationPixelDirection(uint3 blockPixelStartPos, float2 mipInvSize, 
     float4 sumb = 0;
     float4 suma = 0;
 
-    for (uint index = 0; index < BLOCK_SIZE; index++)
+    for (uint texIndex = 0; texIndex < BLOCK_SIZE; texIndex++)
     {
-        float4 texel = UnpackTexel(texelBlock[index]);
+        float4 texel = UnpackTexel(texelBlock[texIndex]);
         float4 dt = texel - pixelMean;
         sumr += (dt.x > 0) ? dt : 0;
 		sumg += (dt.y > 0) ? dt : 0;
@@ -127,22 +138,22 @@ void MaxAccumulationPixelDirection(uint3 blockPixelStartPos, float2 mipInvSize, 
 
     //todo: remove these dynamic branch
     float maxDot = dotr;
-    float maxDir = sumr;
+    float4 maxDir = sumr;
 
-    if(dotg > maxdot)
+    if(dotg > maxDot)
     {
         maxDir = sumg;
         maxDot = dotg;
     }
 
-    if(dotb > maxdot)
+    if(dotb > maxDot)
     {
         maxDir = sumb;
         maxDot = dotb;
     }
 
 #if HAS_ALPHA
-    if(dota > maxdot)
+    if(dota > maxDot)
     {
         maxDir = suma;
         maxDot = dota;
@@ -153,6 +164,97 @@ void MaxAccumulationPixelDirection(uint3 blockPixelStartPos, float2 mipInvSize, 
 	maxDir = (lenMaxDir < SMALL_VALUE) ? maxDir : normalize(maxDir);
 
     FindMinMaxFromBlock(texelBlock, pixelMean, maxDir, endPoint0, endPoint1);
+}
+
+/*
+* MaxAccumulationPixelDirection END
+*/
+
+/*
+* EndPoint ISE BEGIN
+*/
+void EncodeColor(uint quantIndex/*unused*/, float4 e0, float4 e1, out uint endpointQuantized[8])
+{
+    uint4 e0q = round(e0);
+	uint4 e1q = round(e1);
+	endpointQuantized[0] = e0q.r;
+	endpointQuantized[1] = e1q.r;
+	endpointQuantized[2] = e0q.g;
+	endpointQuantized[3] = e1q.g;
+	endpointQuantized[4] = e0q.b;
+	endpointQuantized[5] = e1q.b;
+	endpointQuantized[6] = e0q.a;
+	endpointQuantized[7] = e1q.a;
+}
+
+uint4 EndPointIse(uint colorQuantIndex /* use default quant method*/, float4 ep0, float4 ep1, uint endpointQuantmethod)
+{
+    uint epQuantized[8];
+    EncodeColor(colorQuantIndex,ep0,ep1,epQuantized);
+#if !HAS_ALPHA
+	epQuantized[6] = 0;
+	epQuantized[7] = 0;
+#endif
+
+    uint4 biseEp = 0;
+    BiseEndpoints(epQuantized,endpointQuantmethod,biseEp);
+    return biseEp;
+}
+
+/*
+* EndPoint ISE END
+*/
+
+
+uint FinalizeBlockMode(uint weightQuantMethod)
+{
+    /*
+    "Table C.2.8 - 2D Block Mode Layout".
+	------------------------------------------------------------------------
+	10  9   8   7   6   5   4   3   2   1   0   Width Height Notes
+	------------------------------------------------------------------------
+	D   H     B       A     R0  0   0   R2  R1  B + 4   A + 2
+    */
+
+	uint a = (Y_GRIDS - 2) & 0x3;
+	uint b = (X_GRIDS - 4) & 0x3;
+
+    uint dualPlane = 0;
+
+    uint h = (weightQuantMethod < 6) ? 0 : 1;
+    uint r = (weightQuantMethod % 6) + 2;
+
+    uint blockMode = (r >> 1) & 0x3; // bit 0 and bit 1
+    blockMode |= (r & 0x1) << 4; // bit 4
+    blockMode |= (a & 0x3) << 5; // bit 5 and bit 6
+    blockMode |= (b & 0x3) << 7; // bit 7 and bit 8
+    blockMode |= h << 9;    // bit 9
+    blockMode |= dualPlane << 10;   // bit 10
+
+    return blockMode;
+}
+uint4 FinalizeBlock(uint blockmode, uint colorEndpointMode, uint partitionCount, uint partitionIndex, uint4 epIse, uint4 wtIse)
+{
+    uint4 finalizeBlock = uint4(0, 0, 0, 0);
+    finalizeBlock.w = reversebits(wtIse.x); // weight bits [96:128]
+    finalizeBlock.z = reversebits(wtIse.z); // weight bits [64:096]
+    finalizeBlock.y = reversebits(wtIse.y); 
+    
+
+    // block mode
+    finalizeBlock.x = blockmode; // [0:10]
+
+    // color end point mode
+    finalizeBlock.x |= (colorEndpointMode & 0xF) << 13; // [11:14]
+
+    // endpoints start from (multi_part ? bits 29 : bits 17)
+    // assume partitionCount == 1
+    finalizeBlock.x |= (epIse.x & 0x7FFF) << 17; // end points 15 bits [17:32]
+	finalizeBlock.y = ((epIse.x >> 15) & 0x1FFFF); // end points 17 bits [32:47]
+	finalizeBlock.y |= (epIse.y & 0x7FFF) << 17; // end points 15 bits [47:65]
+	finalizeBlock.z |= ((epIse.y >> 15) & 0x1FFFF);// end points 12 bits [65:82]
+
+    return finalizeBlock;
 }
 
 uint4 EncodeBlock(uint3 blockPixelStartPos, float2 mipInvSize)
@@ -168,7 +270,24 @@ uint4 EncodeBlock(uint3 blockPixelStartPos, float2 mipInvSize)
 #else
 	uint4 bestBlockMode = uint4(QUANT_12, QUANT_256, 12, 7);
 #endif
-}
+
+    //todo: find the best quant method
+
+    uint blockMode = FinalizeBlockMode(bestBlockMode.x);
+    uint4 endPointIse = EndPointIse(bestBlockMode.w,endPoint0,endPoint1,bestBlockMode.y);
+    uint4 weightIse = WeightIse(blockPixelStartPos,mipInvSize,texelBlock,bestBlockMode.z - 1,endPoint0,endPoint1,bestBlockMode.x);
+
+#if HAS_ALPHA
+	uint colorEndpointMode = CEM_LDR_RGBA_DIRECT;
+#else
+	uint colorEndpointMode = CEM_LDR_RGB_DIRECT;
+#endif
+
+    uint partitionCount = 1;
+    uint partitionIndex = 0;
+    return FinalizeBlock(blockMode, colorEndpointMode, partitionCount, partitionIndex, endPointIse, weightIse);
+}   
+
 
 [numthreads(GROUP_SIZE, GROUP_SIZE, 1)]
 void MainCS(uint3 dispatchThreadID : SV_DispatchThreadID)

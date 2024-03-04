@@ -351,7 +351,7 @@ ID3D12ResourcePtr CDxDevice::CreateDefaultBuffer(const void* pInitData, UINT64 n
     return defaultBuffer;
 
 }
-#define TEST_BLOCK_SIZE 8
+#define TEST_BLOCK_SIZE 4
 #define CS_GROUP_SIZE 8
 
 
