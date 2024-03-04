@@ -1,9 +1,9 @@
-#include "fgac_cuda.h"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <stdio.h>
 #include <string>
 
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #include "fgac_cuda.h"
@@ -15,9 +15,24 @@ if (expr != cudaSuccess)\
 __debugbreak(); \
 }\
 
-extern "C" void testKernel(dim3 gridSize, dim3 blockSize, uchar4 * outputData, int width, int height, cudaTextureObject_t tex);
+__gloabl__ void testKernel(uchar4* outputData, int width, int height, cudaTextureObject_t tex)
+{
+	// calculate normalized texture coordinates
+	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-void TestFunc()
+	float u = (float)x - (float)width / 2;
+	float v = (float)y - (float)height / 2;
+
+	u /= (float)width;
+	v /= (float)height;
+
+
+	// read from texture and write to global memory
+	outputData[y * width + x] = tex2D<uchar4>(tex, u + 0.5f, v + 0.5f);
+}
+
+void CudaTestFunc()
 {
 	CUDA_VARIFY(cudaSetDevice(0));
 
@@ -61,10 +76,5 @@ void TestFunc()
 	dim3 dimBlock(8, 8, 1);
 	dim3 dimGrid(width / dimBlock.x, height / dimBlock.y, 1);
 
-	testKernel(dimGrid, dimBlock, (uchar4*)destData, width, height, texObject);
-}
-
-void CudaTestFunc2()
-{
-	TestFunc();
+	testKernel << <dimGrid, dimBlock, 0 >> > (destData, width, height, texObject);
 }

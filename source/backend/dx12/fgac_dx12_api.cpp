@@ -21,7 +21,6 @@
 #pragma comment(lib,"D3D12.lib")
 #pragma comment(lib,"dxgi.lib")
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 //  TODO:
