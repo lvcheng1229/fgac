@@ -11,6 +11,7 @@
 #include "stb_image_write.h"
 
 #include "fgac_cuda.h"
+#include "fgac_compress_texture.h"
 
 #define CUDA_VARIFY(expr)\
 if (expr != cudaSuccess)\
@@ -18,7 +19,8 @@ if (expr != cudaSuccess)\
 __debugbreak(); \
 }\
 
-extern "C" void testKernel(dim3 gridSize, dim3 blockSize, uchar4 * outputData, int width, int height, cudaTextureObject_t tex);
+
+extern "C" void GPUEncodeKernel(dim3 gridSize, dim3 blockSize, uint8_t* outputData, cudaTextureObject_t tex, SAstcEncoderInfo * astcEncoderInfo);
 
 void CudaTestFunc()
 {
@@ -34,6 +36,14 @@ void CudaTestFunc()
 	float* destData = nullptr;
 	CUDA_VARIFY(cudaMalloc((void**)&destData, texSize));
 
+	SAstcEncoderInfo astcEncoderInfoHost;
+	astcEncoderInfoHost.m_srcTexWidth = width;
+	astcEncoderInfoHost.m_srcTexHeight = height;
+
+	SAstcEncoderInfo* astcEncoderInfo;
+	CUDA_VARIFY(cudaMalloc((void**)&astcEncoderInfo, sizeof(SAstcEncoderInfo)));
+	CUDA_VARIFY(cudaMemcpy(astcEncoderInfo, &astcEncoderInfoHost, sizeof(SAstcEncoderInfo), cudaMemcpyHostToDevice));
+
 	// create texture format
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<uchar4>();
 
@@ -41,7 +51,6 @@ void CudaTestFunc()
 	cudaArray* cuArray;
 	CUDA_VARIFY(cudaMallocArray(&cuArray, &channelDesc, width, height));
 	CUDA_VARIFY(cudaMemcpyToArray(cuArray, 0, 0, srcData, texSize, cudaMemcpyHostToDevice));
-
 
 	cudaResourceDesc texResDesc;
 	memset(&texResDesc, 0, sizeof(cudaResourceDesc));
@@ -64,7 +73,7 @@ void CudaTestFunc()
 	dim3 dimBlock(8, 8, 1);
 	dim3 dimGrid(width / dimBlock.x, height / dimBlock.y, 1);
 
-	testKernel(dimGrid, dimBlock, (uchar4*)destData, width, height, texObject);
+	GPUEncodeKernel(dimGrid, dimBlock, (uint8_t*)destData, texObject, astcEncoderInfo);
 
 	CUDA_VARIFY(cudaDeviceSynchronize());
 	float* hOutputData = (float*)malloc(texSize);
