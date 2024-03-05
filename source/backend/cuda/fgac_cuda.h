@@ -1,1 +1,1 @@
-void CudaTestFunc2();
+void CudaTestFunc();

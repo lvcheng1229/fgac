@@ -30,7 +30,6 @@
 //  4. texture mip generation
 //  5. static sampler
 
-
 #define MAX_HARDWARE_ADAPTER_COUNT 16
 
 using wstring_conveter = std::wstring_convert<std::codecvt_utf8<wchar_t>>;
@@ -219,9 +218,10 @@ IDxcBlobPtr CDxDevice::Dx12CompileCsLibraryDXC(const std::wstring& shaderPath, L
         ThrowIfFailed(-1);
     }
 
+    std::string shader;
     std::stringstream strStream;
     strStream << shaderFile.rdbuf();
-    std::string shader = strStream.str();
+    shader = strStream.str();
 
     IDxcBlobEncodingPtr pTextBlob;
     IDxcOperationResultPtr pResult;

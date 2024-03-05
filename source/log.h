@@ -12,6 +12,8 @@ std::shared_ptr<spdlog::logger>& GetLogger();
 #define FGAC_LOG_ERROR(...)    GetLogger()->error(__VA_ARGS__)
 #define FGAC_LOG_CRITICAL(...) GetLogger()->critical(__VA_ARGS__)
 
+
+
 #else
 
 #define FGAC_LOG_TRACE(...)    

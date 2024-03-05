@@ -1,10 +1,8 @@
 
 #ifndef _FGAC_COMPRESS_TEXTURE_CU_
 #define _FGAC_COMPRESS_TEXTURE_CU_
-
-
-
-__gloabl__ void testKernel(uchar4* outputData, int width, int height, cudaTextureObject_t tex)
+#include <cuda.h>
+__global__ void testKernel(uchar4* outputData, int width, int height, cudaTextureObject_t tex)
 {
 	// calculate normalized texture coordinates
 	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -21,11 +19,9 @@ __gloabl__ void testKernel(uchar4* outputData, int width, int height, cudaTextur
 	outputData[y * width + x] = tex2D<uchar4>(tex, u + 0.5f, v + 0.5f);
 }
 
-extern "C" void testKernel(dim3 gridSize, dim3 blockSize,uchar4 * outputData, int width, int height, cudaTextureObject_t tex)
+extern "C" void testKernel(dim3 gridSize, dim3 blockSize, uchar4 * outputData, int width, int height, cudaTextureObject_t tex)
 {
-	testKernel << <gridSize, blockSize,0 >> > (outputData, width, height, tex);
+	testKernel << <gridSize, blockSize, 0 >> > (outputData, width, height, tex);
 }
-
-
 
 #endif

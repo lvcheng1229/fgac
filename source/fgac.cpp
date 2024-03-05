@@ -5,7 +5,7 @@
 int main()
 {
 	//Dx12CsTestFunc();
-	CudaTestFunc2();
+	CudaTestFunc();
 	return 0;
 }
 

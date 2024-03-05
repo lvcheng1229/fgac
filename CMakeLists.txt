@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
 #set(CMAKE_GENERATOR_TOOLSET "ClangCL")
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(FGAC_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -25,4 +26,4 @@ include_directories(${FGAC_ROOT_DIR}/thirdparty/stb)
 add_definitions(-DFGAC_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 
 # executable
-add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
+add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES} ${CUH_FILES} ${CU_FILES})
