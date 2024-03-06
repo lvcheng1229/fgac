@@ -20,7 +20,7 @@ __debugbreak(); \
 }\
 
 
-extern "C" void GPUEncodeKernel(dim3 gridSize, dim3 blockSize, uint8_t* outputData, cudaTextureObject_t tex, SAstcEncoderInfo * astcEncoderInfo);
+extern "C" void GPUEncodeKernel(dim3 gridSize, dim3 blockSize, uint8_t* outputData, cudaTextureObject_t tex, fgac_contexti * ctx);
 
 void CudaTestFunc()
 {
@@ -36,13 +36,11 @@ void CudaTestFunc()
 	float* destData = nullptr;
 	CUDA_VARIFY(cudaMalloc((void**)&destData, texSize));
 
-	SAstcEncoderInfo astcEncoderInfoHost;
-	astcEncoderInfoHost.m_srcTexWidth = width;
-	astcEncoderInfoHost.m_srcTexHeight = height;
+	fgac_contexti ctx;
 
-	SAstcEncoderInfo* astcEncoderInfo;
-	CUDA_VARIFY(cudaMalloc((void**)&astcEncoderInfo, sizeof(SAstcEncoderInfo)));
-	CUDA_VARIFY(cudaMemcpy(astcEncoderInfo, &astcEncoderInfoHost, sizeof(SAstcEncoderInfo), cudaMemcpyHostToDevice));
+	fgac_contexti* pCtx;
+	CUDA_VARIFY(cudaMalloc((void**)&pCtx, sizeof(fgac_contexti)));
+	CUDA_VARIFY(cudaMemcpy(pCtx, &ctx, sizeof(fgac_contexti), cudaMemcpyHostToDevice));
 
 	// create texture format
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<uchar4>();
@@ -73,7 +71,7 @@ void CudaTestFunc()
 	dim3 dimBlock(8, 8, 1);
 	dim3 dimGrid(width / dimBlock.x, height / dimBlock.y, 1);
 
-	GPUEncodeKernel(dimGrid, dimBlock, (uint8_t*)destData, texObject, astcEncoderInfo);
+	GPUEncodeKernel(dimGrid, dimBlock, (uint8_t*)destData, texObject, pCtx);
 
 	CUDA_VARIFY(cudaDeviceSynchronize());
 	float* hOutputData = (float*)malloc(texSize);
