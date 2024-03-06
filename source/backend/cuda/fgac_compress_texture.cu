@@ -19,6 +19,22 @@ __device__ uchar4 GetTexelData(uint2 blockStartIndex, float2 invTexSize, uint32_
 	return tex2D<uchar4>(tex, sampledUV.x, sampledUV.y);
 }
 
+__device__ float prepare_error_weight_block(imageblock* blk, error_weight_block* ewb, error_weight_block_orig* ewbo, SAstcEncoderInfo* astcEncoderInfo)
+{
+	float4 color_weights = astcEncoderInfo->ewp.rgba_weights;
+
+	uint32_t x, y;
+
+	for (y = 0; y < astcEncoderInfo->m_yDim; y++)
+	{
+		for (x = 0; x < astcEncoderInfo->m_xDim; x++)
+		{
+
+		}
+	}
+		
+}
+
 __device__ void compress_symbolic_block(imageblock* blk, symbolic_compressed_block* scb, SAstcEncoderInfo* astcEncoderInfo)
 {
 	if (blk->red_min == blk->red_max && blk->green_min == blk->green_max && blk->blue_min == blk->blue_max && blk->alpha_min == blk->alpha_max)

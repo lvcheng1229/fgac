@@ -1,5 +1,10 @@
 typedef struct
 {
+	float4 rgba_weights;
+}error_weighting_params;
+
+typedef struct
+{
 	uint32_t m_srcTexWidth;
 	uint32_t m_srcTexHeight;
 
@@ -10,4 +15,6 @@ typedef struct
 	uint32_t m_blkNumY;
 
 	float m_compressQuality;
+
+	error_weighting_params ewp;
 }SAstcEncoderInfo;
