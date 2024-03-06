@@ -1,20 +1,42 @@
-typedef struct
+#ifndef _FGAC_COMPRESS_TEXTURE_H_
+#define _FGAC_COMPRESS_TEXTURE_H_
+
+struct fgac_config
 {
-	float4 rgba_weights;
-}error_weighting_params;
+	float cw_r_weight;
+	float cw_g_weight;
+	float cw_b_weight;
+	float cw_a_weight;
 
-typedef struct
+	float cw_sum_weight; //fgac
+
+	float tune_db_limit; //The dB threshold for stopping block search(-dblimit).
+
+	/**
+	* @brief The config enable for the mode0 fast-path search.
+	*
+	* If this is set to TUNE_MIN_TEXELS_MODE0 or higher then the early-out fast mode0
+	* search is enabled. This option is ineffective for 3D block sizes.
+	*/
+	float tune_search_mode0_enable;
+};
+
+struct block_size_descriptor
 {
-	uint32_t m_srcTexWidth;
-	uint32_t m_srcTexHeight;
+	uint8_t xdim; // The block x dimension
+	uint8_t ydim; // The block y dimension
 
-	uint32_t m_xDim; // block dimension x, e.g. 8x8
-	uint32_t m_yDim; // block dimension u, e.g. 8x8
+	uint8_t texel_count; // The block total texel count e.g. 8*8
+};
 
-	uint32_t m_blkNumX;
-	uint32_t m_blkNumY;
+struct fgac_contexti
+{
+	fgac_config config;
 
-	float m_compressQuality;
+	block_size_descriptor bsd;
 
-	error_weighting_params ewp;
-}SAstcEncoderInfo;
+	unsigned int dim_x; // The X dimension of the image e.g. 1024
+	unsigned int dim_y; // The Y dimension of the image e.g. 1024
+};
+
+#endif
