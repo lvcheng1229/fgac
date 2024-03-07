@@ -11,14 +11,6 @@ struct fgac_config
 	float cw_sum_weight; //fgac
 
 	float tune_db_limit; //The dB threshold for stopping block search(-dblimit).
-
-	/**
-	* @brief The config enable for the mode0 fast-path search.
-	*
-	* If this is set to TUNE_MIN_TEXELS_MODE0 or higher then the early-out fast mode0
-	* search is enabled. This option is ineffective for 3D block sizes.
-	*/
-	float tune_search_mode0_enable;
 };
 
 struct block_size_descriptor

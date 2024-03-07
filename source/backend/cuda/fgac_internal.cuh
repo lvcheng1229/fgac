@@ -15,6 +15,7 @@
 
 #define SYM_BTYPE_CONST_U16 2
 #define TUNE_MIN_SEARCH_MODE0 0.85
+#define WEIGHTS_MAX_BLOCK_MODES 2048 // block mode has 10 bit, that is to say, we have 2^10 possible solution
 
 struct image_block
 {
