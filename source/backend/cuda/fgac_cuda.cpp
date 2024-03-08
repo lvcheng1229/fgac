@@ -148,7 +148,7 @@ void DecodeTest()
 	ctx.dim_x = dim_x;
 	ctx.dim_y = dim_y;
 
-	ctx.c.xdim = block_x;
+	ctx.bsd.xdim = block_x;
 	ctx.bsd.ydim = block_y;
 
 	fgac_contexti* pCtx;

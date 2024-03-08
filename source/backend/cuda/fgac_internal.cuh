@@ -11,11 +11,6 @@
 
 #include "fgac_compress_texture.h"
 
-#define BLOCK_MAX_TEXELS (12 * 12)
-
-#define SYM_BTYPE_CONST_U16 2
-#define TUNE_MIN_SEARCH_MODE0 0.85
-
 
 struct image_block
 {
