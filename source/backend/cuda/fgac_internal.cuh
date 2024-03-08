@@ -15,7 +15,7 @@
 
 #define SYM_BTYPE_CONST_U16 2
 #define TUNE_MIN_SEARCH_MODE0 0.85
-#define WEIGHTS_MAX_BLOCK_MODES 2048 // block mode has 10 bit, that is to say, we have 2^10 possible solution
+
 
 struct image_block
 {
@@ -26,6 +26,12 @@ struct image_block
 
 	float4 data_min;
 	float4 data_max;
+};
+
+//the unpacked content of a single physical compressed block
+struct symbolic_compressed_block
+{
+	uint8_t block_type;
 };
 
 struct compression_working_buffers
