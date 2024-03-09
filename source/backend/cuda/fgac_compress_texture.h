@@ -2,11 +2,13 @@
 #define _FGAC_COMPRESS_TEXTURE_H_
 #include <stdint.h>
 
-#define BLOCK_MAX_TEXELS (12 * 12)
+#define BLOCK_MAX_TEXELS (8 * 8)
 #define BLOCK_MAX_PARTITIONS 4
 #define BLOCK_MAX_PARTITIONINGS 1024
 
+#define SYM_BTYPE_ERROR 0
 #define SYM_BTYPE_CONST_U16 2
+
 #define TUNE_MIN_SEARCH_MODE0 0.85
 #define BLOCK_BAD_BLOCK_MODE 0xFFFFu
 #define WEIGHTS_MAX_BLOCK_MODES 2048 // block mode has 10 bit, that is to say, we have 2^10 possible solution
@@ -137,13 +139,32 @@ struct block_size_descriptor
 	unsigned int block_mode_count_1plane_2plane_selected;
 	unsigned int block_mode_count_all;
 
+	unsigned int partitioning_count_selected[BLOCK_MAX_PARTITIONS];
+	unsigned int partitioning_count_all[BLOCK_MAX_PARTITIONS];
+
 	unsigned int decimation_mode_count_always;
 	unsigned int decimation_mode_count_selected;
 	unsigned int decimation_mode_count_all;
 
+	uint16_t partitioning_packed_index[3][BLOCK_MAX_PARTITIONINGS];
 	uint8_t kmeans_texels[BLOCK_MAX_KMEANS_TEXELS]; // The active texels for k-means partition selection.
 
 	partition_info partitionings[(3 * BLOCK_MAX_PARTITIONINGS) + 1];
+
+	uint64_t coverage_bitmaps_2[BLOCK_MAX_PARTITIONINGS][2]; // The canonical 2-partition coverage pattern used during block partition search.
+	uint64_t coverage_bitmaps_3[BLOCK_MAX_PARTITIONINGS][3]; 
+	uint64_t coverage_bitmaps_4[BLOCK_MAX_PARTITIONINGS][4];
+	
+	//__device__ const block_mode& get_block_mode(unsigned int block_mode) const
+	//{
+	//	unsigned int packed_index = this->block_mode_packed_index[block_mode];
+	//	return this->block_modes[packed_index];
+	//}
+	//
+	//__device__ const decimation_info& get_decimation_info(unsigned int decimation_mode) const
+	//{
+	//	return this->decimation_tables[decimation_mode];
+	//}
 };
 
 struct fgac_contexti

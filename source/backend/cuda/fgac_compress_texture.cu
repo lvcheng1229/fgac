@@ -49,6 +49,7 @@ __global__ void GPUEncodeKernel(uint8_t* outputData, cudaTextureObject_t tex, fg
 
 __global__ void GPUDecodeKernel(uint8_t* compressedData, uint8_t* decompressedData, fgac_contexti* ctx)
 {
+#if !COMPRESS_ONLY
 	uint32_t global_index_x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint32_t global_index_y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -68,6 +69,7 @@ __global__ void GPUDecodeKernel(uint8_t* compressedData, uint8_t* decompressedDa
 
 	symbolic_compressed_block scb;
 	physical_to_symbolic(&bsd, srcData, &scb);
+#endif
 
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <assert.h>
+#include "fgac_internal.h"
 #include "fgac_compress_texture.h"
 
 struct ise_size
@@ -39,7 +40,7 @@ static const std::array<ise_size, 21> ise_sizes{ {
 } };
 
 /* See header for documentation. */
-unsigned int get_ise_sequence_bitcount(
+unsigned int get_ise_sequence_bitcounts(
 	unsigned int character_count,
 	quant_method quant_level
 ) {
@@ -150,7 +151,7 @@ static bool decode_block_mode_2d(
 	unsigned int weight_count = x_weights * y_weights * (D + 1);
 	quant_mode = (R0 - 2) + 6 * H;
 	is_dual_plane = D != 0;
-	weight_bits = get_ise_sequence_bitcount(weight_count, static_cast<quant_method>(quant_mode));
+	weight_bits = get_ise_sequence_bitcounts(weight_count, static_cast<quant_method>(quant_mode));
 	return (weight_count <= BLOCK_MAX_WEIGHTS && weight_bits >= BLOCK_MIN_WEIGHT_BITS && weight_bits <= BLOCK_MAX_WEIGHT_BITS);
 
 }
@@ -372,7 +373,7 @@ static void construct_dt_entry_2d(
 	int maxprec_2planes = -1;
 	for (int i = 0; i < 12; i++)
 	{
-		unsigned int bits_1plane = get_ise_sequence_bitcount(weight_count, static_cast<quant_method>(i));
+		unsigned int bits_1plane = get_ise_sequence_bitcounts(weight_count, static_cast<quant_method>(i));
 		if (bits_1plane >= BLOCK_MIN_WEIGHT_BITS && bits_1plane <= BLOCK_MAX_WEIGHT_BITS)
 		{
 			maxprec_1plane = i;
@@ -380,7 +381,7 @@ static void construct_dt_entry_2d(
 
 		if (try_2planes)
 		{
-			unsigned int bits_2planes = get_ise_sequence_bitcount(2 * weight_count, static_cast<quant_method>(i));
+			unsigned int bits_2planes = get_ise_sequence_bitcounts(2 * weight_count, static_cast<quant_method>(i));
 			if (bits_2planes >= BLOCK_MIN_WEIGHT_BITS && bits_2planes <= BLOCK_MAX_WEIGHT_BITS)
 			{
 				maxprec_2planes = i;
@@ -561,4 +562,5 @@ void init_block_size_descriptor(
 ) 
 {
 	construct_block_size_descriptor_2d(x_texels, y_texels, can_omit_modes, mode_cutoff, bsd);
+	init_partition_tables(bsd, can_omit_modes, partition_count_cutoff);
 }
