@@ -6,6 +6,7 @@
 #include "fgac_internal.cuh"
 #include "fgac_pick_best_endpoint_format.cuh"
 #include "fgac_ideal_endpoints_and_weights.cuh"
+#include "fgac_weight_align.cuh"
 
 __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config& config,
 	const block_size_descriptor& bsd,
