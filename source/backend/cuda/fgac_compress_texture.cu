@@ -19,9 +19,13 @@ __global__ void GPUEncodeKernel(uint8_t* outputData, cudaTextureObject_t tex, fg
 	
 	const block_size_descriptor bsd = ctx->bsd;
 
+	image_block blk;
+
 	// block size e.g. 8x8
 	int block_x = bsd.xdim;
 	int block_y = bsd.ydim;
+	blk.texel_count = block_x * block_y;
+	blk.channel_weight = make_float4(ctx->config.cw_r_weight, ctx->config.cw_g_weight, ctx->config.cw_b_weight, ctx->config.cw_a_weight);
 
 	// image size
 	int dim_x = ctx->dim_x;
@@ -40,7 +44,7 @@ __global__ void GPUEncodeKernel(uint8_t* outputData, cudaTextureObject_t tex, fg
 
 	uint2 start_pix_pos = make_uint2(global_index_x, global_index_y) * make_uint2(block_x, block_y);
 
-	image_block blk;
+
 	uint8_t* dstData = outputData + offset;
 	compression_working_buffers tmpBuf;
 	load_image_block_fast_ldr(&blk, start_pix_pos, tex, ctx);

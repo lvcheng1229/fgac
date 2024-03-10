@@ -10,6 +10,7 @@ __device__ void load_image_block_fast_ldr(image_block* blk, uint2 startPixPos, c
 
 	float4 data_min(1e38);
 	float4 data_max(-1e38);
+	float4 data_mean(0);
 
 	int idx = 0;
 	for (uint32_t y = 0; y < bsd.ydim; y++)
@@ -24,6 +25,7 @@ __device__ void load_image_block_fast_ldr(image_block* blk, uint2 startPixPos, c
 			
 			data_min = fminf(datav, data_min);
 			data_max = fmaxf(datav, data_max);
+			data_max += datav;
 
 			blk->data_r[idx] = srcData.x;
 			blk->data_g[idx] = srcData.y;
@@ -36,6 +38,7 @@ __device__ void load_image_block_fast_ldr(image_block* blk, uint2 startPixPos, c
 
 	blk->data_min = data_min;
 	blk->data_max = data_max;
+	blk->data_mean = data_mean / static_cast<float>(bsd.texel_count);
 } 
 
 #endif
