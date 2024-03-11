@@ -21,6 +21,13 @@
 #define BLOCK_MAX_WEIGHT_BITS 96
 #define BLOCK_MAX_KMEANS_TEXELS 64 //The maximum number of texels used during partition selection for texel clustering
 
+#define TUNE_MAX_ANGULAR_QUANT 7 /* QUANT_12 */
+
+
+#define SINCOS_STEPS 64
+#define ANGULAR_STEPS 32
+#define PI 3.14159265358979323846f
+
 enum quant_method
 {
 	QUANT_2 = 0,
@@ -155,6 +162,9 @@ struct block_size_descriptor
 	uint64_t coverage_bitmaps_3[BLOCK_MAX_PARTITIONINGS][3]; 
 	uint64_t coverage_bitmaps_4[BLOCK_MAX_PARTITIONINGS][4];
 	
+	float sin_table[SINCOS_STEPS][ANGULAR_STEPS];
+	float cos_table[SINCOS_STEPS][ANGULAR_STEPS];
+
 	//__device__ const block_mode& get_block_mode(unsigned int block_mode) const
 	//{
 	//	unsigned int packed_index = this->block_mode_packed_index[block_mode];

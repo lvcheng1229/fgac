@@ -551,6 +551,20 @@ static void construct_block_size_descriptor_2d(
 	delete wb;
 }
 
+void prepare_angular_tables(block_size_descriptor& bsd)
+{
+	for (unsigned int i = 0; i < ANGULAR_STEPS; i++)
+	{
+		float angle_step = static_cast<float>(i + 1);
+
+		for (unsigned int j = 0; j < SINCOS_STEPS; j++)
+		{
+			bsd.sin_table[j][i] = static_cast<float>(sinf((2.0f * PI / (SINCOS_STEPS - 1.0f)) * angle_step * static_cast<float>(j)));
+			bsd.cos_table[j][i] = static_cast<float>(cosf((2.0f * PI / (SINCOS_STEPS - 1.0f)) * angle_step * static_cast<float>(j)));
+		}
+	}
+}
+
 void init_block_size_descriptor(
 	unsigned int x_texels,
 	unsigned int y_texels,
@@ -563,4 +577,5 @@ void init_block_size_descriptor(
 {
 	construct_block_size_descriptor_2d(x_texels, y_texels, can_omit_modes, mode_cutoff, bsd);
 	init_partition_tables(bsd, can_omit_modes, partition_count_cutoff);
+	prepare_angular_tables(bsd);
 }

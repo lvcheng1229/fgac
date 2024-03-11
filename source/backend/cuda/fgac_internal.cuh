@@ -12,6 +12,9 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 
+#define __CUDACC__ 1 //todo:
+#include <device_functions.h>
+
 #include "fgac_compress_texture.h"
 
 struct line4

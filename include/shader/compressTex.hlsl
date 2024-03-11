@@ -237,7 +237,7 @@ uint4 FinalizeBlock(uint blockmode, uint colorEndpointMode, uint partitionCount,
 {
     uint4 finalizeBlock = uint4(0, 0, 0, 0);
     finalizeBlock.w = reversebits(wtIse.x); // weight bits [96:128]
-    finalizeBlock.z = reversebits(wtIse.z); // weight bits [64:096]
+    finalizeBlock.z = reversebits(wtIse.z); // weight bits [64:096] [81:096]
     finalizeBlock.y = reversebits(wtIse.y); 
     
 
@@ -250,9 +250,9 @@ uint4 FinalizeBlock(uint blockmode, uint colorEndpointMode, uint partitionCount,
     // endpoints start from (multi_part ? bits 29 : bits 17)
     // assume partitionCount == 1
     finalizeBlock.x |= (epIse.x & 0x7FFF) << 17; // end points 15 bits [17:32]
-	finalizeBlock.y = ((epIse.x >> 15) & 0x1FFFF); // end points 17 bits [32:47]
-	finalizeBlock.y |= (epIse.y & 0x7FFF) << 17; // end points 15 bits [47:65]
-	finalizeBlock.z |= ((epIse.y >> 15) & 0x1FFFF);// end points 12 bits [65:82]
+	finalizeBlock.y = ((epIse.x >> 15) & 0x1FFFF); // end points 17 bits [32:49]
+	finalizeBlock.y |= (epIse.y & 0x7FFF) << 17; // end points 15 bits [49:64]
+	finalizeBlock.z |= ((epIse.y >> 15) & 0x1FFFF);// end points 12 bits [64:81]
 
     return finalizeBlock;
 }
@@ -299,11 +299,11 @@ void MainCS(uint3 dispatchThreadID : SV_DispatchThreadID)
     
     //TODO:
     uint mipLevel = 0;
-    for(uint index = 0; index < m_mipsNum; index++) 
+    for(uint index = 1; index < m_mipsNum; index++) 
     {
         if(blockIndex < mipStartBlockIndex[index])
         {
-            mipLevel = blockIndex - 1;
+            mipLevel = index - 1;
             break;
         }
     }
