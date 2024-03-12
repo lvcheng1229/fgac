@@ -26,6 +26,7 @@
 
 #define SINCOS_STEPS 64
 #define ANGULAR_STEPS 32
+#define ERROR_CALC_DEFAULT 1e30f
 #define PI 3.14159265358979323846f
 
 enum quant_method

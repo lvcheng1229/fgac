@@ -133,7 +133,64 @@ __device__ void compute_angular_endpoints_for_quant_levels(
 		angular_offsets, lowest_weight, weight_span, error,
 		cut_low_weight_error, cut_high_weight_error);
 
+	// For each quantization level, find the best error terms. Use packed vectors so data-dependent
+	// branches can become selects. This involves some integer to float casts, but the values are
+	// small enough so they never round the wrong way.
+	float4 best_results[36];
 
+	// Initialize the array to some safe defaults
+	for (unsigned int i = 0; i < (max_quant_steps + 4); i++)
+	{
+		// Lane<0> = Best error
+		// Lane<1> = Best scale; -1 indicates no solution found
+		// Lane<2> = Cut low weight
+		best_results[i] = float4(ERROR_CALC_DEFAULT, -1.0f, 0.0f, 0.0f);
+	}
+
+	for (unsigned int i = 0; i < max_angular_steps; i++)
+	{
+		float i_flt = static_cast<float>(i);
+
+		int idx_span = weight_span[i];
+
+		float error_cut_low = error[i] + cut_low_weight_error[i];
+		float error_cut_high = error[i] + cut_high_weight_error[i];
+		float error_cut_low_high = error[i] + cut_low_weight_error[i] + cut_high_weight_error[i];
+
+		// Check best error against record N
+		float4 best_result = best_results[idx_span];
+		float4 new_result = float4(error[i], i_flt, 0.0f, 0.0f);
+		best_results[idx_span] = (best_result.x > error[i]) ? new_result : best_result;
+
+		// Check best error against record N-1 with either cut low or cut high
+		best_result = best_results[idx_span - 1];
+
+		new_result = float4(error_cut_low, i_flt, 1.0f, 0.0f);
+		best_result = best_result.x > error_cut_low ? new_result : best_result; 
+
+		new_result = float4(error_cut_high, i_flt, 0.0f, 0.0f);
+		best_results[idx_span - 1] = best_result.x > error_cut_high ? new_result : best_result;
+
+		// Check best error against record N-2 with both cut low and high
+		best_result = best_results[idx_span - 2];
+		new_result = float4(error_cut_low_high, i_flt, 1.0f, 0.0f);
+		best_results[idx_span - 2] = best_result.x > error_cut_low_high ? new_result: best_result; 
+	}
+
+	for (unsigned int i = 0; i <= max_quant_level; i++)
+	{
+		unsigned int q = steps_for_quant_level[i];
+		int bsi = static_cast<int>(best_results[q].x);
+
+		bsi = std::max(0, bsi);
+
+		float lwi = lowest_weight[bsi] + best_results[q].y;
+		float hwi = lwi + static_cast<float>(q) - 1.0f;
+
+		float stepsize = 1.0f / (1.0f + static_cast<float>(bsi));
+		low_value[i] = (angular_offsets[bsi] + lwi) * stepsize;
+		high_value[i] = (angular_offsets[bsi] + hwi) * stepsize;
+	}
 }
 
 
@@ -145,6 +202,10 @@ __device__ void compute_angular_endpoints_1plane(
 	compression_working_buffers& tmpbuf
 ) 
 {
+	float(&low_value)[WEIGHTS_MAX_BLOCK_MODES] = tmpbuf.weight_low_value1;
+	float(&high_value)[WEIGHTS_MAX_BLOCK_MODES] = tmpbuf.weight_high_value1;
 
+	float(&low_values)[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1] = tmpbuf.weight_low_values1;
+	float(&high_values)[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1] = tmpbuf.weight_high_values1;
 }
 #endif

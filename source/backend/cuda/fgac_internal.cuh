@@ -54,6 +54,12 @@ struct compression_working_buffers
 
 	float dec_weights_ideal[WEIGHTS_MAX_DECIMATION_MODES * BLOCK_MAX_WEIGHTS];//Decimated ideal weight values in the ~0-1 range.
 	uint8_t dec_weights_uquant[WEIGHTS_MAX_BLOCK_MODES * BLOCK_MAX_WEIGHTS];//Decimated quantized weight values in the unquantized 0-64 range.
+
+	
+	float weight_low_value1[WEIGHTS_MAX_BLOCK_MODES];/** @brief The low weight value in plane 1 for each block mode. */
+	float weight_high_value1[WEIGHTS_MAX_BLOCK_MODES];/** @brief The high weight value in plane 1 for each block mode. */
+	float weight_low_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The low weight value in plane 1 for each quant level and decimation mode. */
+	float weight_high_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The high weight value in plane 1 for each quant level and decimation mode. */
 };
 
 struct endpoints
