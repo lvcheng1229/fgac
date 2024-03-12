@@ -14,7 +14,8 @@
 #define WEIGHTS_MAX_BLOCK_MODES 2048 // block mode has 10 bit, that is to say, we have 2^10 possible solution
 #define WEIGHTS_MAX_DECIMATION_MODES 87
 
-#define WEIGHTS_TEXEL_SUM 16.0f
+#define PARTITION_INDEX_BITS 10
+#define WEIGHTS_TEXEL_SUM 16.0f /** @brief The number of partition index bits supported by the ASTC format . */
 
 #define BLOCK_MAX_WEIGHTS 64
 #define BLOCK_MIN_WEIGHT_BITS 24
@@ -119,6 +120,21 @@ struct partition_info
 	uint8_t texels_of_partition[BLOCK_MAX_PARTITIONS][BLOCK_MAX_TEXELS];/** @brief The list of texels in each partition. */
 };
 
+// Weight quantization transfer table.
+struct quant_and_transfer_table
+{
+	uint8_t quant_to_unquant[32];/** @brief The unscrambled unquantized value. */
+	uint8_t scramble_map[32];/** @brief The scrambling order: scrambled_quant = map[unscrambled_quant]. */
+	uint8_t unscramble_and_unquant_map[32];/** @brief The unscrambling order: unscrambled_unquant = map[scrambled_quant]. */
+
+	/**
+	 * @brief A table of previous-and-next weights, indexed by the current unquantized value.
+	 *  * bits 7:0 = previous-index, unquantized
+	 *  * bits 15:8 = next-index, unquantized
+	 */
+	uint16_t prev_next_values[65];
+};
+
 struct block_mode
 {
 	uint16_t mode_index;
@@ -166,16 +182,7 @@ struct block_size_descriptor
 	float sin_table[SINCOS_STEPS][ANGULAR_STEPS];
 	float cos_table[SINCOS_STEPS][ANGULAR_STEPS];
 
-	//__device__ const block_mode& get_block_mode(unsigned int block_mode) const
-	//{
-	//	unsigned int packed_index = this->block_mode_packed_index[block_mode];
-	//	return this->block_modes[packed_index];
-	//}
-	//
-	//__device__ const decimation_info& get_decimation_info(unsigned int decimation_mode) const
-	//{
-	//	return this->decimation_tables[decimation_mode];
-	//}
+	quant_and_transfer_table quant_and_xfer_tables[12];
 };
 
 struct fgac_contexti

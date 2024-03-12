@@ -1,6 +1,7 @@
 #ifndef _FGAC_WEIGHTS_ALIGN_CUH_
 #define _FGAC_WEIGHTS_ALIGN_CUH_
 
+#include "fgac_compress_texture.h"
 #include "fgac_internal.cuh"
 
 __constant__ uint8_t steps_for_quant_level[12]{
@@ -207,5 +208,55 @@ __device__ void compute_angular_endpoints_1plane(
 
 	float(&low_values)[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1] = tmpbuf.weight_low_values1;
 	float(&high_values)[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1] = tmpbuf.weight_high_values1;
+
+	unsigned int max_decimation_modes = only_always ? bsd.decimation_mode_count_always : bsd.decimation_mode_count_selected;
+	for (unsigned int i = 0; i < max_decimation_modes; i++)
+	{
+		const decimation_mode& dm = bsd.decimation_modes[i];
+		if(!is_ref_1plane(dm, static_cast<quant_method>(max_weight_quant)))
+		{
+			continue;
+		}
+
+		unsigned int weight_count = get_decimation_info(&bsd,i).weight_count;
+
+		unsigned int max_precision = dm.maxprec_1plane;
+		if (max_precision > TUNE_MAX_ANGULAR_QUANT)
+		{
+			max_precision = TUNE_MAX_ANGULAR_QUANT;
+		}
+
+		if (max_precision > max_weight_quant)
+		{
+			max_precision = max_weight_quant;
+		}
+
+		compute_angular_endpoints_for_quant_levels(
+			bsd,
+			weight_count,
+			dec_weight_ideal_value + i * BLOCK_MAX_WEIGHTS,
+			max_precision, low_values[i], high_values[i]);
+	}
+
+	unsigned int max_block_modes = only_always ? bsd.block_mode_count_1plane_always
+		: bsd.block_mode_count_1plane_selected;
+	for (unsigned int i = 0; i < max_block_modes; i++)
+	{
+		const block_mode& bm = bsd.block_modes[i];
+
+		unsigned int quant_mode = bm.quant_mode;
+		unsigned int decim_mode = bm.decimation_mode;
+
+		if (quant_mode <= TUNE_MAX_ANGULAR_QUANT)
+		{
+			low_value[i] = low_values[decim_mode][quant_mode];
+			high_value[i] = high_values[decim_mode][quant_mode];
+		}
+		else
+		{
+			low_value[i] = 0.0f;
+			high_value[i] = 1.0f;
+		}
+	}
 }
 #endif

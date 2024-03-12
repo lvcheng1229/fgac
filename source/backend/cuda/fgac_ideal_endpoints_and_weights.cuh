@@ -254,4 +254,63 @@ __device__ void compute_ideal_colors_and_weights_1plane(
 	}
 }
 
+// The available quant levels, stored with a minus 1 bias
+__constant__ float quant_levels_m1[12]{
+	1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 7.0f, 9.0f, 11.0f, 15.0f, 19.0f, 23.0f, 31.0f
+};
+
+__device__ void compute_quantized_weights_for_decimation(
+	const block_size_descriptor& bsd,
+	const decimation_info& di,
+	float low_bound,
+	float high_bound,
+	const float* dec_weight_ideal_value,
+	float* weight_set_out,
+	uint8_t* quantized_weight_set,
+	quant_method quant_level
+) 
+{
+	int weight_count = di.weight_count;
+	const quant_and_transfer_table& qat = bsd.quant_and_xfer_tables[quant_level];
+
+	int steps_m1(get_quant_level(quant_level) - 1);
+	float quant_level_m1 = quant_levels_m1[quant_level];
+
+	// Quantize the weight set using both the specified low/high bounds and standard 0..1 bounds
+	if (high_bound <= low_bound)
+	{
+		low_bound = 0.0f;
+		high_bound = 1.0f;
+	}
+
+	float rscale = high_bound - low_bound;
+	float scale = 1.0f / rscale;
+
+	float scaled_low_bound = low_bound * scale;
+	rscale *= 1.0f / 64.0f;
+
+	if (get_quant_level(quant_level) <= 16)
+	{
+		for (int i = 0; i < weight_count; i++)
+		{
+			// equal to (weight - low_bound) / (high_bound - low_bound)
+			float ix = dec_weight_ideal_value[i] * scale - scaled_low_bound;
+			ix = clamp(ix, 0.0, 1.0);
+
+			// Look up the two closest indexes and return the one that was closest
+			float ix1 = ix * quant_level_m1;
+
+			int weightl = int(ix1);
+			int weighth = std::min(weightl + 1, steps_m1);
+
+			int ixli = qat.quant_to_unquant[weightl];
+			int ixhi = qat.quant_to_unquant[weighth];
+
+			float ixl = float(ixli);
+			float ixh = float(ixhi);
+
+
+		}
+	}
+}
 #endif

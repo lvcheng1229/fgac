@@ -60,6 +60,9 @@ struct compression_working_buffers
 	float weight_high_value1[WEIGHTS_MAX_BLOCK_MODES];/** @brief The high weight value in plane 1 for each block mode. */
 	float weight_low_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The low weight value in plane 1 for each quant level and decimation mode. */
 	float weight_high_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The high weight value in plane 1 for each quant level and decimation mode. */
+	
+	int8_t qwt_bitcounts[WEIGHTS_MAX_BLOCK_MODES];/** @brief The total bit storage needed for quantized weights for each block mode. */
+	float qwt_errors[WEIGHTS_MAX_BLOCK_MODES];/** @brief The cumulative error for quantized weights for each block mode. */
 };
 
 struct endpoints
@@ -120,5 +123,36 @@ __device__ bool is_ref_1plane(const decimation_mode& dm, quant_method max_weight
 {
 	uint16_t mask = static_cast<uint16_t>((1 << (max_weight_quant + 1)) - 1);
 	return (dm.refprec_1plane & mask) != 0;
+}
+
+__device__ unsigned int get_quant_level(quant_method method)
+{
+	switch (method)
+	{
+	case QUANT_2:   return   2;
+	case QUANT_3:   return   3;
+	case QUANT_4:   return   4;
+	case QUANT_5:   return   5;
+	case QUANT_6:   return   6;
+	case QUANT_8:   return   8;
+	case QUANT_10:  return  10;
+	case QUANT_12:  return  12;
+	case QUANT_16:  return  16;
+	case QUANT_20:  return  20;
+	case QUANT_24:  return  24;
+	case QUANT_32:  return  32;
+	case QUANT_40:  return  40;
+	case QUANT_48:  return  48;
+	case QUANT_64:  return  64;
+	case QUANT_80:  return  80;
+	case QUANT_96:  return  96;
+	case QUANT_128: return 128;
+	case QUANT_160: return 160;
+	case QUANT_192: return 192;
+	case QUANT_256: return 256;
+	}
+
+	// Unreachable - the enum is fully described
+	return 0;
 }
 #endif
