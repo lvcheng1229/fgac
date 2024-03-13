@@ -10,6 +10,7 @@
 #define SYM_BTYPE_CONST_U16 2
 
 #define TUNE_MIN_SEARCH_MODE0 0.85
+#define TUNE_MAX_TRIAL_CANDIDATES 8
 #define BLOCK_BAD_BLOCK_MODE 0xFFFFu
 #define WEIGHTS_MAX_BLOCK_MODES 2048 // block mode has 10 bit, that is to say, we have 2^10 possible solution
 #define WEIGHTS_MAX_DECIMATION_MODES 87
@@ -56,6 +57,24 @@ enum quant_method
 	QUANT_256 = 20
 };
 
+struct line2
+{
+	float4 a;
+	float4 b;
+};
+
+struct line3
+{
+	float4 a;
+	float4 b;
+};
+
+struct processed_line3
+{
+	float4 amod;
+	float4 bs;
+};
+
 struct fgac_config
 {
 	//unsigned int block_x; // 8x8 ...
@@ -98,6 +117,19 @@ struct decimation_mode
 
 	inline void set_ref_1plane(quant_method weight_quant) { refprec_1plane |= (1 << weight_quant); }
 	inline void set_ref_2plane(quant_method weight_quant) { refprec_2planes |= static_cast<uint16_t>(1 << weight_quant); }
+};
+
+/**
+ * @brief Utility storing estimated errors from choosing particular endpoint encodings.
+ */
+struct encoding_choice_errors
+{
+	float rgb_scale_error;/** @brief Error of using LDR RGB-scale instead of complete endpoints. */
+	float rgb_luma_error;/** @brief Error of using HDR RGB-scale instead of complete endpoints. */
+	float luminance_error;/** @brief Error of using luminance instead of RGB. */
+	float alpha_drop_error;/** @brief Error of discarding alpha and using a constant 1.0 alpha. */
+	bool can_offset_encode;/** @brief Can we use delta offset encoding? */
+	bool can_blue_contract;/** @brief Can we use blue contraction encoding? */
 };
 
 struct dt_init_working_buffers

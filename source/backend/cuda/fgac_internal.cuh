@@ -155,4 +155,17 @@ __device__ unsigned int get_quant_level(quant_method method)
 	// Unreachable - the enum is fully described
 	return 0;
 }
+
+__device__ float4 normalize_safe(float4 a)
+{
+	float length = a.x * a.x + a.y * a.y + a.z * a.z+ a.w * a.w;
+	if (length != 0.0f)
+	{
+		float inv_sqr_length = 1.0 / sqrt(length);
+		return float4(a.x * inv_sqr_length, a.y * inv_sqr_length, a.z * inv_sqr_length, a.w * inv_sqr_length);
+	}
+
+	float val = 0.577350258827209473f;
+	return float4(val, val, val, 0.0f);
+}
 #endif

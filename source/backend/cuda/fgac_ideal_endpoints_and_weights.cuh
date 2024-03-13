@@ -11,6 +11,34 @@ __device__ float bilinear_infill_vla(
 	unsigned int index
 ) {
 	// Load the bilinear filter texel weight indexes in the decimated grid
+	int weight_idx0 = int(di.texel_weights_tr[0] + index);
+	int weight_idx1 = int(di.texel_weights_tr[1] + index);
+	int weight_idx2 = int(di.texel_weights_tr[2] + index);
+	int weight_idx3 = int(di.texel_weights_tr[3] + index);
+
+	// Load the bilinear filter weights from the decimated grid
+	float weight_val0 = weights[weight_idx0];
+	float weight_val1 = weights[weight_idx1];
+	float weight_val2 = weights[weight_idx2];
+	float weight_val3 = weights[weight_idx3];
+
+	// Load the weight contribution factors for each decimated weight
+	float tex_weight_float0 = di.texel_weight_contribs_float_tr[0][index];
+	float tex_weight_float1 = di.texel_weight_contribs_float_tr[1][index];
+	float tex_weight_float2 = di.texel_weight_contribs_float_tr[2][index];
+	float tex_weight_float3 = di.texel_weight_contribs_float_tr[3][index];
+
+	// Compute the bilinear interpolation to generate the per-texel weight
+	return (weight_val0 * tex_weight_float0 + weight_val1 * tex_weight_float1) +
+		(weight_val2 * tex_weight_float2 + weight_val3 * tex_weight_float3);
+}
+
+__device__ float bilinear_infill_vla(
+	const decimation_info& di,
+	const float* weights,
+	unsigned int index
+) {
+	// Load the bilinear filter texel weight indexes in the decimated grid
 	int weight_idx0 = di.texel_weights_tr[0][index];
 	int weight_idx1 = di.texel_weights_tr[1][index];
 	int weight_idx2 = di.texel_weights_tr[2][index];
@@ -259,6 +287,7 @@ __constant__ float quant_levels_m1[12]{
 	1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 7.0f, 9.0f, 11.0f, 15.0f, 19.0f, 23.0f, 31.0f
 };
 
+
 __device__ void compute_quantized_weights_for_decimation(
 	const block_size_descriptor& bsd,
 	const decimation_info& di,
@@ -289,28 +318,96 @@ __device__ void compute_quantized_weights_for_decimation(
 	float scaled_low_bound = low_bound * scale;
 	rscale *= 1.0f / 64.0f;
 
-	if (get_quant_level(quant_level) <= 16)
+	for (int i = 0; i < weight_count; i++)
 	{
-		for (int i = 0; i < weight_count; i++)
+		// equal to (weight - low_bound) / (high_bound - low_bound)
+		float ix = dec_weight_ideal_value[i] * scale - scaled_low_bound;
+		ix = clamp(ix, 0.0, 1.0);
+
+		// Look up the two closest indexes and return the one that was closest
+		float ix1 = ix * quant_level_m1;
+
+		int weightl = int(ix1);
+		int weighth = std::min(weightl + 1, steps_m1);
+
+		int ixli = qat.quant_to_unquant[weightl];
+		int ixhi = qat.quant_to_unquant[weighth];
+
+		float ixl = float(ixli);
+		float ixh = float(ixhi);
+
+		int weight = 0;
+		if (ixl + ixh < 128.0f * ix)
 		{
-			// equal to (weight - low_bound) / (high_bound - low_bound)
-			float ix = dec_weight_ideal_value[i] * scale - scaled_low_bound;
-			ix = clamp(ix, 0.0, 1.0);
+			weight = ixhi;
+			ixl = ixh;
+		}
+		else
+		{
+			weight = ixli;
+			ixl = ixl;
+		}
 
-			// Look up the two closest indexes and return the one that was closest
-			float ix1 = ix * quant_level_m1;
+		// Invert the weight-scaling that was done initially
+		weight_set_out[i] = ixl * rscale + low_bound;
+		quantized_weight_set[i] = weight & 0xFF;
+	}
+}
 
-			int weightl = int(ix1);
-			int weighth = std::min(weightl + 1, steps_m1);
+__device__ float compute_error_of_weight_set_1plane(
+	const endpoints_and_weights& eai,
+	const decimation_info& di,
+	const float* dec_weight_quant_uvalue)
+{
+	float error_summa = 0;
+	unsigned int texel_count = di.texel_count;
+	if (di.max_texel_weight_count > 2)
+	{
+		for (unsigned int i = 0; i < texel_count; i++)
+		{
+			// Compute the bilinear interpolation of the decimated weight grid
+			float current_values = bilinear_infill_vla(di, dec_weight_quant_uvalue, i);
 
-			int ixli = qat.quant_to_unquant[weightl];
-			int ixhi = qat.quant_to_unquant[weighth];
+			float actual_values = eai.weights[i];
+			float diff = current_values - actual_values;
+			float significance = eai.weight_error_scale[i];
+			float error = diff * diff * significance;
 
-			float ixl = float(ixli);
-			float ixh = float(ixhi);
-
-
+			error_summa += error;
 		}
 	}
+	else if (di.max_texel_weight_count > 1)
+	{
+		for (unsigned int i = 0; i < texel_count; i ++)
+		{
+			// Compute the bilinear interpolation of the decimated weight grid
+			float current_values = bilinear_infill_vla_2(di, dec_weight_quant_uvalue, i);
+
+			// Compute the error between the computed value and the ideal weight
+			float actual_values = eai.weights[i];
+			float diff = current_values - actual_values;
+			float significance = eai.weight_error_scale[i];
+			float error = diff * diff * significance;
+
+			error_summa += error;
+		}
+	}
+	else
+	{
+		for (unsigned int i = 0; i < texel_count; i ++)
+		{
+			// Load the weight set directly, without interpolation
+			float current_values = dec_weight_quant_uvalue[i];
+
+			// Compute the error between the computed value and the ideal weight
+			float actual_values = eai.weights[i];
+			float diff = current_values - actual_values;
+			float significance = eai.weight_error_scale[i];
+			float error = diff * diff * significance;
+
+			error_summa += error;
+		}
+	}
+	return error_summa;
 }
 #endif

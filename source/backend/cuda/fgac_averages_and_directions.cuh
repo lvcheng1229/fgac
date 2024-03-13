@@ -89,17 +89,89 @@ __device__ void compute_partition_averages_rgba(
 	}
 }
 
+__device__ void compute_avgs_and_dirs_3_comp_rgb(
+	const partition_info& pi,
+	const image_block& blk,
+	partition_metrics pm[BLOCK_MAX_PARTITIONS]
+) 
+{
+	// Pre-compute partition_averages
+	float4 partition_averages[BLOCK_MAX_PARTITIONS];
+
+	// For 1 partition just use the precomputed mean
+	// Only support 1 partition
+	partition_averages[0] = blk.data_mean;
+
+	for (unsigned int partition = 0; partition < 1; partition++)
+	{
+		const uint8_t* texel_indexes = pi.texels_of_partition[partition];
+		unsigned int texel_count = pi.partition_texel_count[partition];
+
+		float4 average = partition_averages[partition];
+		pm[partition].avg = average;
+
+		float4 sum_xp(0.0);
+		float4 sum_yp(0.0);
+		float4 sum_zp(0.0);
+		//float4 sum_wp(0.0);
+
+		for (unsigned int i = 0; i < texel_count; i++)
+		{
+			uint8_t iwt = texel_indexes[i];
+			float4 texel_datum = make_float4(blk.data_r[iwt], blk.data_g[iwt], blk.data_b[iwt], blk.data_a[iwt]);
+			texel_datum = texel_datum - average;
+
+			sum_xp += (texel_datum.x > 0) ? texel_datum : float4(0);
+			sum_yp += (texel_datum.y > 0) ? texel_datum : float4(0);
+			sum_zp += (texel_datum.z > 0) ? texel_datum : float4(0);
+			//sum_wp += (texel_datum.w > 0) ? texel_datum : float4(0);
+		}
+
+		float prod_xp = dot(sum_xp, sum_xp);
+		float prod_yp = dot(sum_yp, sum_yp);
+		float prod_zp = dot(sum_zp, sum_zp);
+		//float prod_wp = dot(sum_wp, sum_wp);
+
+		float4 best_vector = sum_xp;
+		float best_sum = prod_xp;
+
+		if (prod_yp > best_sum)
+		{
+			best_vector = sum_yp;
+			best_sum = prod_yp;
+		}
+
+		if (prod_zp > best_sum)
+		{
+			best_vector = sum_zp;
+			best_sum = prod_zp;
+		}
+
+		//if (prod_wp > best_sum)
+		//{
+		//	best_vector = sum_wp;
+		//	best_sum = prod_wp;
+		//}
+
+		pm[partition].dir = best_vector;
+	}
+}
 __device__ void compute_avgs_and_dirs_4_comp(
 	const partition_info& pi,
 	const image_block& blk,
 	partition_metrics pm[BLOCK_MAX_PARTITIONS]
 ) 
 {
-	int partition_count = pi.partition_count;
+	//int partition_count = pi.partition_count;
 	float4 partition_averages[BLOCK_MAX_PARTITIONS];
-	compute_partition_averages_rgba(pi, blk, partition_averages);
 
-	for (int partition = 0; partition < partition_count; partition++)
+	// For 1 partition just use the precomputed mean
+	// Only support 1 partition
+	partition_averages[0] = blk.data_mean;
+
+	//compute_partition_averages_rgba(pi, blk, partition_averages);
+
+	for (int partition = 0; partition < 1; partition++)
 	{
 		const uint8_t* texel_indexes = pi.texels_of_partition[partition];
 		unsigned int texel_count = pi.partition_texel_count[partition];
