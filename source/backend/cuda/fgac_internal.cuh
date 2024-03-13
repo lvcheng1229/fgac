@@ -144,7 +144,13 @@ __device__ const decimation_mode& get_decimation_mode(const block_size_descripto
 	return bsd->decimation_modes[decimation_mode];
 }
 
-const decimation_info& get_decimation_info(const block_size_descriptor* bsd, unsigned int decimation_mode)
+__device__ const block_mode& get_block_mode(const block_size_descriptor* bsd, unsigned int block_mode) 
+{
+	unsigned int packed_index = bsd->block_mode_packed_index[block_mode];
+	return bsd->block_modes[packed_index];
+}
+
+__device__ const decimation_info& get_decimation_info(const block_size_descriptor* bsd, unsigned int decimation_mode)
 {
 	return bsd->decimation_tables[decimation_mode];
 }

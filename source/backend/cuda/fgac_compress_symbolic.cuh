@@ -7,6 +7,9 @@
 #include "fgac_pick_best_endpoint_format.cuh"
 #include "fgac_ideal_endpoints_and_weights.cuh"
 #include "fgac_weight_align.cuh"
+#include "fgac_color_quantize.cuh"
+#include "fgac_decompress_symbolic.cuh"
+#include "fgac_symbolic_physical.cuh"
 
 __constant__ int8_t free_bits_for_partition_count[4]{
 	115 - 4, 111 - 4 - PARTITION_INDEX_BITS, 108 - 4 - PARTITION_INDEX_BITS, 105 - 4 - PARTITION_INDEX_BITS
@@ -178,7 +181,7 @@ __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config&
 		for (unsigned int l = 0; l < config.tune_refinement_limit; l++)
 		{
 			recompute_ideal_colors_1plane(
-				blk, pi, di, workscb.weights,
+				blk, *pi, di, workscb.weights,
 				workep, rgbs_colors, rgbo_colors);
 
 			// Quantize the chosen color, tracking if worth trying the mod value
@@ -186,6 +189,7 @@ __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config&
 			for (unsigned int j = 0; j < partition_count; j++)
 			{
 				workscb.color_formats[j] = pack_color_endpoints(
+					bsd,
 					workep.endpt0[j],
 					workep.endpt1[j],
 					rgbs_colors[j],
@@ -209,6 +213,7 @@ __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config&
 				for (unsigned int j = 0; j < partition_count; j++)
 				{
 					color_formats_mod[j] = pack_color_endpoints(
+						bsd,
 						workep.endpt0[j],
 						workep.endpt1[j],
 						rgbs_colors[j],
@@ -251,15 +256,14 @@ __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config&
 			// Pre-realign test
 			if (l == 0)
 			{
-				float errorval = compute_difference(config, bsd, workscb, blk);
+				float errorval = compute_symbolic_block_difference_1plane_1partition(config, bsd, workscb, blk);
 				if (errorval == -ERROR_CALC_DEFAULT)
 				{
 					errorval = -errorval;
 					workscb.block_type = SYM_BTYPE_ERROR;
 				}
 
-				trace_add_data("error_prerealign", errorval);
-				best_errorval_in_mode = astc::min(errorval, best_errorval_in_mode);
+				best_errorval_in_mode = fmin(errorval, best_errorval_in_mode);
 
 				// Average refinement improvement is 3.5% per iteration (allow 4.5%), but the first
 				// iteration can help more so we give it a extra 8% leeway. Use this knowledge to
@@ -287,28 +291,15 @@ __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config&
 				}
 			}
 
-			bool adjustments;
-			if (di.weight_count != bsd.texel_count)
-			{
-				adjustments = realign_weights_decimated(
-					config.profile, bsd, blk, workscb);
-			}
-			else
-			{
-				adjustments = realign_weights_undecimated(
-					config.profile, bsd, blk, workscb);
-			}
-
 			// Post-realign test
-			float errorval = compute_difference(config, bsd, workscb, blk);
+			float errorval = compute_symbolic_block_difference_1plane_1partition(config, bsd, workscb, blk);
 			if (errorval == -ERROR_CALC_DEFAULT)
 			{
 				errorval = -errorval;
 				workscb.block_type = SYM_BTYPE_ERROR;
 			}
 
-			trace_add_data("error_postrealign", errorval);
-			best_errorval_in_mode = astc::min(errorval, best_errorval_in_mode);
+			best_errorval_in_mode = fmin(errorval, best_errorval_in_mode);
 
 			// Average refinement improvement is 3.5% per iteration, so skip blocks that are
 			// unlikely to catch up with the best block we have already. Assume a 4.5% per step to
@@ -334,10 +325,7 @@ __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config&
 				}
 			}
 
-			if (!adjustments)
-			{
-				break;
-			}
+			
 		}
 	}
 
@@ -347,6 +335,7 @@ __device__ float compress_symbolic_block_for_partition_1plane(const fgac_config&
 __device__ void compress_block(fgac_contexti* ctx, image_block* blk, uint8_t pcb[16], compression_working_buffers* tmpbuf)
 {
 	const block_size_descriptor& bsd = ctx->bsd;
+	symbolic_compressed_block scb;
 	const fgac_config& config = ctx->config;
 
 	if ((blk->data_min.x == blk->data_max.x) && 
@@ -361,8 +350,15 @@ __device__ void compress_block(fgac_contexti* ctx, image_block* blk, uint8_t pcb
 	float error_threshold = config.tune_db_limit * error_weight_sum;
 
 	// search 1 partition and 1 plane
-	compress_symbolic_block_for_partition_1plane(1);
-	return;
+	{
+		float errorval = compress_symbolic_block_for_partition_1plane(
+			ctx->config, bsd, *blk, false,
+			error_threshold,
+			1, 0, scb, *tmpbuf, QUANT_32);
+	}
+	
+	// Compress to a physical block
+	symbolic_to_physical(bsd, scb, pcb);
 }
 
 #endif

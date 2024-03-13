@@ -25,6 +25,7 @@
 
 #define TUNE_MAX_ANGULAR_QUANT 7 /* QUANT_12 */
 
+#define SYM_BTYPE_NONCONST 3
 
 #define SINCOS_STEPS 64
 #define ANGULAR_STEPS 32
@@ -238,6 +239,8 @@ struct block_size_descriptor
 
 	quant_and_transfer_table quant_and_xfer_tables[12];
 	int8_t quant_mode_table[10][128];
+	uint8_t color_unquant_to_uquant_tables[17][512];
+	uint8_t color_uquant_to_scrambled_pquant_tables[17][256];
 };
 
 struct fgac_contexti
