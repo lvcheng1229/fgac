@@ -42,9 +42,34 @@ struct image_block
 //the unpacked content of a single physical compressed block
 struct symbolic_compressed_block
 {
-	uint8_t block_type;
-	uint8_t partition_count;
-	uint16_t block_mode;
+	uint8_t block_type;/** @brief The block type, one of the @c SYM_BTYPE_* constants. */
+	uint8_t partition_count;/** @brief The number of partitions; valid for @c NONCONST blocks. */
+	uint8_t color_formats_matched;/** @brief Non-zero if the color formats matched; valid for @c NONCONST blocks. */
+	int8_t plane2_component;/** @brief The plane 2 color component, or -1 if single plane; valid for @c NONCONST blocks. */
+	uint16_t block_mode;/** @brief The block mode; valid for @c NONCONST blocks. */
+	uint16_t partition_index;/** @brief The partition index; valid for @c NONCONST blocks if 2 or more partitions. */
+	uint8_t color_formats[BLOCK_MAX_PARTITIONS];/** @brief The endpoint color formats for each partition; valid for @c NONCONST blocks. */
+	quant_method quant_mode;/** @brief The endpoint color quant mode; valid for @c NONCONST blocks. */
+	float errorval;/** @brief The error of the current encoding; valid for @c NONCONST blocks. */
+
+	// We can't have both of these at the same time
+	union {
+		/** @brief The constant color; valid for @c CONST blocks. */
+		int constant_color[4];
+
+		/** @brief The quantized endpoint color pairs; valid for @c NONCONST blocks. */
+		uint8_t color_values[BLOCK_MAX_PARTITIONS][8];
+	};
+
+	/** @brief The quantized and decimated weights.
+	 *
+	 * Weights are stored in the 0-64 unpacked range allowing them to be used
+	 * directly in encoding passes without per-use unpacking. Packing happens
+	 * when converting to/from the physical bitstream encoding.
+	 *
+	 * If dual plane, the second plane starts at @c weights[WEIGHTS_PLANE2_OFFSET].
+	 */
+	uint8_t weights[BLOCK_MAX_WEIGHTS];
 };
 
 struct compression_working_buffers
@@ -63,6 +88,11 @@ struct compression_working_buffers
 	
 	int8_t qwt_bitcounts[WEIGHTS_MAX_BLOCK_MODES];/** @brief The total bit storage needed for quantized weights for each block mode. */
 	float qwt_errors[WEIGHTS_MAX_BLOCK_MODES];/** @brief The cumulative error for quantized weights for each block mode. */
+
+	float errors_of_best_combination[WEIGHTS_MAX_BLOCK_MODES];/** @brief Error of the best encoding combination for each block mode. */
+	uint8_t best_quant_levels[WEIGHTS_MAX_BLOCK_MODES];/** @brief The best color quant for each block mode. */
+	uint8_t best_quant_levels_mod[WEIGHTS_MAX_BLOCK_MODES];/** @brief The best color quant for each block mode if modes are the same and we have spare bits. */
+	uint8_t best_ep_formats[WEIGHTS_MAX_BLOCK_MODES][BLOCK_MAX_PARTITIONS];/** @brief The best endpoint format for each partition. */
 };
 
 struct endpoints

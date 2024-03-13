@@ -55,7 +55,7 @@ void QuantizeWeights(float projectedWeight[X_GRIDS * Y_GRIDS], uint weightRange,
 {
     for(uint i = 0; i < X_GRIDS * Y_GRIDS; i++)
     {
-        weights = QuantizeWeight(weightRange,projectedWeight[i]);
+        weights[i] = QuantizeWeight(weightRange,projectedWeight[i]);
     }
 }
 

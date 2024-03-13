@@ -151,6 +151,17 @@ void DecodeTest()
 	ctx.bsd.xdim = block_x;
 	ctx.bsd.ydim = block_y;
 
+	ctx.config.cw_r_weight = 1;
+	ctx.config.cw_g_weight = 1;
+	ctx.config.cw_b_weight = 1;
+	ctx.config.cw_a_weight = 1;
+	
+	ctx.config.cw_sum_weight = 4;
+
+	ctx.config.tune_db_limit = 40.5294;
+	ctx.config.tune_candidate_limit = 3;
+	ctx.config.tune_refinement_limit = 3;
+
 	fgac_contexti* pCtx;
 	CUDA_VARIFY(cudaMalloc((void**)&pCtx, sizeof(fgac_contexti)));
 	CUDA_VARIFY(cudaMemcpy(pCtx, &ctx, sizeof(fgac_contexti), cudaMemcpyHostToDevice));

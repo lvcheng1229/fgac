@@ -31,6 +31,26 @@
 #define ERROR_CALC_DEFAULT 1e30f
 #define PI 3.14159265358979323846f
 
+enum endpoint_formats
+{
+	FMT_LUMINANCE = 0,
+	FMT_LUMINANCE_DELTA = 1,
+	FMT_HDR_LUMINANCE_LARGE_RANGE = 2,
+	FMT_HDR_LUMINANCE_SMALL_RANGE = 3,
+	FMT_LUMINANCE_ALPHA = 4,
+	FMT_LUMINANCE_ALPHA_DELTA = 5,
+	FMT_RGB_SCALE = 6,
+	FMT_HDR_RGB_SCALE = 7,
+	FMT_RGB = 8,
+	FMT_RGB_DELTA = 9,
+	FMT_RGB_SCALE_ALPHA = 10,
+	FMT_HDR_RGB = 11,
+	FMT_RGBA = 12,
+	FMT_RGBA_DELTA = 13,
+	FMT_HDR_RGB_LDR_ALPHA = 14,
+	FMT_HDR_RGBA = 15
+};
+
 enum quant_method
 {
 	QUANT_2 = 0,
@@ -88,6 +108,8 @@ struct fgac_config
 	float cw_sum_weight; //fgac
 
 	float tune_db_limit; //The dB threshold for stopping block search(-dblimit).
+	unsigned int tune_candidate_limit;// The number of trial candidates per mode search(-candidatelimit).
+	unsigned int tune_refinement_limit; // The maximum iterative refinements applied (-refinementlimit).
 };
 
 struct decimation_info
@@ -129,7 +151,7 @@ struct encoding_choice_errors
 	float luminance_error;/** @brief Error of using luminance instead of RGB. */
 	float alpha_drop_error;/** @brief Error of discarding alpha and using a constant 1.0 alpha. */
 	bool can_offset_encode;/** @brief Can we use delta offset encoding? */
-	bool can_blue_contract;/** @brief Can we use blue contraction encoding? */
+	//bool can_blue_contract;/** @brief Can we use blue contraction encoding? */
 };
 
 struct dt_init_working_buffers
@@ -215,6 +237,7 @@ struct block_size_descriptor
 	float cos_table[SINCOS_STEPS][ANGULAR_STEPS];
 
 	quant_and_transfer_table quant_and_xfer_tables[12];
+	int8_t quant_mode_table[10][128];
 };
 
 struct fgac_contexti
