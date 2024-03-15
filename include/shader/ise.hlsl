@@ -40,13 +40,13 @@ void PackNumToBitPos(inout uint4 outPuts, inout uint bitoffset, uint number, uin
 {
 	uint newBitPos = bitoffset + bitCount;
 
-	uint startByteIndex = bitoffset >> 5; // bitoffset / 32
-	uint endByteIndex = newBitPos >> 5; // newBitPos / 32
+	uint nidx = newBitPos >> 5; // bitoffset / 32
+	uint uidx = bitoffset >> 5; // newBitPos / 32
 	uint byteOffset = bitoffset & 31;  // bitoffset % 32
 
 	uint bytes[4] = {outPuts.x, outPuts.y, outPuts.z, outPuts.w};
-	bytes[startByteIndex] |= number << byteOffset;
-	bytes[startByteIndex + 1] |= (startByteIndex > endByteIndex) ? (number >> (32 - byteOffset)) : 0;
+	bytes[uidx] |= number << byteOffset;
+	bytes[uidx + 1] |= (nidx > uidx) ? (number >> (32 - byteOffset)) : 0;
 
 	outPuts.x = bytes[0];
 	outPuts.y = bytes[1];
