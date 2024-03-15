@@ -64,7 +64,7 @@ float4 GetTexel(uint3 blockPixelStartPos, float2 mipInvSize, uint subBlockIndex)
     texel.z = 1.0f;
     texel.w = 1.0f;
 #endif
-    return texel;
+    return texel * 255.0f;
 }
 
 /*
@@ -82,7 +82,7 @@ void FindMinMaxFromBlock(const uint texelBlock[BLOCK_SIZE], float4 pixelMean, fl
         texel -= pixelMean;
         float projT = dot(texel,maxDir);
         minProjT = min(minProjT,projT);
-        maxProjT = min(maxProjT,projT);
+        maxProjT = max(maxProjT,projT);
     }
 
     endPoint0 = clamp(maxDir * minProjT + pixelMean, 0.0f, 255.0f);
