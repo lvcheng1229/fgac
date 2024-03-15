@@ -12,8 +12,8 @@
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 
-#define __CUDACC__ 1 //todo:
-#include <device_functions.h>
+//#define __CUDACC__ 1 //todo:
+//#include <device_functions.h>
 
 #include "fgac_compress_texture.h"
 
@@ -72,29 +72,6 @@ struct symbolic_compressed_block
 	uint8_t weights[BLOCK_MAX_WEIGHTS];
 };
 
-struct compression_working_buffers
-{
-	endpoints_and_weights ei1;/** @brief Ideal endpoints and weights for plane 1. */
-	endpoints_and_weights ei2;/** @brief Ideal endpoints and weights for plane 2. */
-
-	float dec_weights_ideal[WEIGHTS_MAX_DECIMATION_MODES * BLOCK_MAX_WEIGHTS];//Decimated ideal weight values in the ~0-1 range.
-	uint8_t dec_weights_uquant[WEIGHTS_MAX_BLOCK_MODES * BLOCK_MAX_WEIGHTS];//Decimated quantized weight values in the unquantized 0-64 range.
-
-	
-	float weight_low_value1[WEIGHTS_MAX_BLOCK_MODES];/** @brief The low weight value in plane 1 for each block mode. */
-	float weight_high_value1[WEIGHTS_MAX_BLOCK_MODES];/** @brief The high weight value in plane 1 for each block mode. */
-	float weight_low_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The low weight value in plane 1 for each quant level and decimation mode. */
-	float weight_high_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The high weight value in plane 1 for each quant level and decimation mode. */
-	
-	int8_t qwt_bitcounts[WEIGHTS_MAX_BLOCK_MODES];/** @brief The total bit storage needed for quantized weights for each block mode. */
-	float qwt_errors[WEIGHTS_MAX_BLOCK_MODES];/** @brief The cumulative error for quantized weights for each block mode. */
-
-	float errors_of_best_combination[WEIGHTS_MAX_BLOCK_MODES];/** @brief Error of the best encoding combination for each block mode. */
-	uint8_t best_quant_levels[WEIGHTS_MAX_BLOCK_MODES];/** @brief The best color quant for each block mode. */
-	uint8_t best_quant_levels_mod[WEIGHTS_MAX_BLOCK_MODES];/** @brief The best color quant for each block mode if modes are the same and we have spare bits. */
-	uint8_t best_ep_formats[WEIGHTS_MAX_BLOCK_MODES][BLOCK_MAX_PARTITIONS];/** @brief The best endpoint format for each partition. */
-};
-
 struct endpoints
 {
 	unsigned int partition_count;
@@ -110,6 +87,28 @@ struct endpoints_and_weights
 	float weight_error_scale[BLOCK_MAX_TEXELS];
 };
 
+struct compression_working_buffers
+{
+	endpoints_and_weights ei1;/** @brief Ideal endpoints and weights for plane 1. */
+	endpoints_and_weights ei2;/** @brief Ideal endpoints and weights for plane 2. */
+
+	float dec_weights_ideal[WEIGHTS_MAX_DECIMATION_MODES * BLOCK_MAX_WEIGHTS];//Decimated ideal weight values in the ~0-1 range.
+	uint8_t dec_weights_uquant[WEIGHTS_MAX_BLOCK_MODES * BLOCK_MAX_WEIGHTS];//Decimated quantized weight values in the unquantized 0-64 range.
+
+	float weight_low_value1[WEIGHTS_MAX_BLOCK_MODES];/** @brief The low weight value in plane 1 for each block mode. */
+	float weight_high_value1[WEIGHTS_MAX_BLOCK_MODES];/** @brief The high weight value in plane 1 for each block mode. */
+	float weight_low_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The low weight value in plane 1 for each quant level and decimation mode. */
+	float weight_high_values1[WEIGHTS_MAX_DECIMATION_MODES][TUNE_MAX_ANGULAR_QUANT + 1];/** @brief The high weight value in plane 1 for each quant level and decimation mode. */
+
+	int8_t qwt_bitcounts[WEIGHTS_MAX_BLOCK_MODES];/** @brief The total bit storage needed for quantized weights for each block mode. */
+	float qwt_errors[WEIGHTS_MAX_BLOCK_MODES];/** @brief The cumulative error for quantized weights for each block mode. */
+
+	float errors_of_best_combination[WEIGHTS_MAX_BLOCK_MODES];/** @brief Error of the best encoding combination for each block mode. */
+	uint8_t best_quant_levels[WEIGHTS_MAX_BLOCK_MODES];/** @brief The best color quant for each block mode. */
+	uint8_t best_quant_levels_mod[WEIGHTS_MAX_BLOCK_MODES];/** @brief The best color quant for each block mode if modes are the same and we have spare bits. */
+	uint8_t best_ep_formats[WEIGHTS_MAX_BLOCK_MODES][BLOCK_MAX_PARTITIONS];/** @brief The best endpoint format for each partition. */
+};
+
 
 struct partition_metrics
 {
@@ -117,27 +116,27 @@ struct partition_metrics
 	float4 dir;
 };
 
-__device__ const partition_info* get_partition_table(const block_size_descriptor* bsd, unsigned int partition_count)
-{
-	if (partition_count == 1)
-	{
-		partition_count = 5;
-	}
-	unsigned int index = (partition_count - 2) * BLOCK_MAX_PARTITIONINGS;
-	return bsd->partitionings + index;
-}
+//__device__ const partition_info* get_partition_table(const block_size_descriptor* bsd, unsigned int partition_count)
+//{
+//	if (partition_count == 1)
+//	{
+//		partition_count = 5;
+//	}
+//	unsigned int index = (partition_count - 2) * BLOCK_MAX_PARTITIONINGS;
+//	return bsd->partitionings + index;
+//}
 
-__device__ const partition_info* get_partition_info(const block_size_descriptor* bsd, unsigned int partition_count, unsigned int index)
-{
-	unsigned int packed_index = 0;
-	if (partition_count >= 2)
-	{
-		packed_index = bsd->partitioning_packed_index[partition_count - 2][index];
-	}
-
-	const partition_info* result = &get_partition_table(bsd, partition_count)[packed_index];
-	return result;
-}
+//__device__ const partition_info* get_partition_info(const block_size_descriptor* bsd, unsigned int partition_count, unsigned int index)
+//{
+//	//unsigned int packed_index = 0;
+//	//if (partition_count >= 2)
+//	//{
+//	//	packed_index = bsd->partitioning_packed_index[partition_count - 2][index];
+//	//}
+//
+//	const partition_info* result = &get_partition_table(bsd, partition_count)[packed_index];
+//	return result;
+//}
 
 __device__ const decimation_mode& get_decimation_mode(const block_size_descriptor* bsd,unsigned int decimation_mode)
 {
@@ -204,4 +203,12 @@ __device__ float4 normalize_safe(float4 a)
 	float val = 0.577350258827209473f;
 	return float4(val, val, val, 0.0f);
 }
+
+//__device__ bool kernel_gloabl_index_enable_debug()
+//{
+//	uint32_t global_index_x = blockIdx.x * blockDim.x + threadIdx.x;
+//	uint32_t global_index_y = blockIdx.y * blockDim.y + threadIdx.y;
+//	return global_index_x == 0 && global_index_y == 0;
+//}
+
 #endif

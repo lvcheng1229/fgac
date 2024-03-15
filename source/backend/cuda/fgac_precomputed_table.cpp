@@ -137,5 +137,5 @@ void prepare_precomputed_tables(block_size_descriptor& bsd)
 	prepare_quant_and_xfer_tables(bsd);
 	prepare_quant_mode_table(bsd);
 	prepare_color_unquant_to_uquant_tables(bsd);
-	prepare_color_uquant_to_scrambled_pquant_tables(bsd)
+	prepare_color_uquant_to_scrambled_pquant_tables(bsd);
 }

@@ -401,7 +401,6 @@ static void construct_dt_entry_2d(
 static void construct_block_size_descriptor_2d(
 	unsigned int x_texels,
 	unsigned int y_texels,
-	bool can_omit_modes,
 	float mode_cutoff,
 	block_size_descriptor& bsd)
 {
@@ -434,12 +433,8 @@ static void construct_block_size_descriptor_2d(
 
 	// Iterate four times to build a usefully ordered list:
 	//   - Pass 0 - keep selected single plane "always" block modes
-	//   - Pass 1 - keep selected single plane "non-always" block modes
-	//   - Pass 2 - keep select dual plane block modes
-	//   - Pass 3 - keep everything else that's legal
 
-	unsigned int limit = can_omit_modes ? 3 : 4;
-	for (unsigned int j = 0; j < limit; j++)
+	for (unsigned int j = 0; j < 1; j++)
 	{
 		for (unsigned int i = 0; i < WEIGHTS_MAX_BLOCK_MODES; i++)
 		{
@@ -487,11 +482,6 @@ static void construct_block_size_descriptor_2d(
 					continue;
 				}
 			}
-
-			//if (j != 3)
-			//{
-			//	
-			//}
 
 			int decimation_mode = decimation_mode_index[y_weights * 16 + x_weights];
 			if (decimation_mode < 0)
@@ -577,7 +567,7 @@ void init_block_size_descriptor(
 	block_size_descriptor& bsd
 ) 
 {
-	construct_block_size_descriptor_2d(x_texels, y_texels, can_omit_modes, mode_cutoff, bsd);
-	init_partition_tables(bsd, can_omit_modes, partition_count_cutoff);
+	construct_block_size_descriptor_2d(x_texels, y_texels, mode_cutoff, bsd);
+	//init_partition_tables(bsd, can_omit_modes, partition_count_cutoff);
 	prepare_angular_tables(bsd);
 }

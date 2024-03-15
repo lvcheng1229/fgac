@@ -32,6 +32,8 @@
 #define ERROR_CALC_DEFAULT 1e30f
 #define PI 3.14159265358979323846f
 
+#include <vector_types.h>
+
 enum endpoint_formats
 {
 	FMT_LUMINANCE = 0,

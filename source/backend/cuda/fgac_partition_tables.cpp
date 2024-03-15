@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "fgac_internal.h"
+#include "fgac_compress_texture.h"
 
 #define BIT_PATTERN_WORDS (((BLOCK_MAX_TEXELS * 2) + 63) / 64)
 
@@ -356,7 +357,7 @@ static void build_partition_table_for_one_partition_count(
 			{
 				if (x == 0)
 				{
-					bsd.partitioning_packed_index[partition_count - 2][i] = static_cast<uint16_t>(next_index);
+					//bsd.partitioning_packed_index[partition_count - 2][i] = static_cast<uint16_t>(next_index);
 					bsd.partitioning_count_selected[partition_count - 1]++;
 					bsd.partitioning_count_all[partition_count - 1]++;
 					build[i] = 1;
@@ -367,7 +368,7 @@ static void build_partition_table_for_one_partition_count(
 			{
 				if (x == 1)
 				{
-					bsd.partitioning_packed_index[partition_count - 2][i] = static_cast<uint16_t>(next_index);
+					//bsd.partitioning_packed_index[partition_count - 2][i] = static_cast<uint16_t>(next_index);
 					bsd.partitioning_count_all[partition_count - 1]++;
 					next_index++;
 				}
@@ -376,22 +377,22 @@ static void build_partition_table_for_one_partition_count(
 	}
 }
 
-void init_partition_tables(block_size_descriptor& bsd, bool can_omit_partitionings, unsigned int partition_count_cutoff)
-{
-	partition_info* par_tab2 = bsd.partitionings;
-	partition_info* par_tab3 = par_tab2 + BLOCK_MAX_PARTITIONINGS;
-	partition_info* par_tab4 = par_tab3 + BLOCK_MAX_PARTITIONINGS;
-	partition_info* par_tab1 = par_tab4 + BLOCK_MAX_PARTITIONINGS;
-
-	generate_one_partition_info_entry(bsd, 1, 0, 0, *par_tab1);
-	bsd.partitioning_count_selected[0] = 1;
-	bsd.partitioning_count_all[0] = 1;
-
-	uint64_t* canonical_patterns = new uint64_t[BLOCK_MAX_PARTITIONINGS * BIT_PATTERN_WORDS];
-
-	build_partition_table_for_one_partition_count(bsd, can_omit_partitionings, partition_count_cutoff, 2, par_tab2, canonical_patterns);
-	build_partition_table_for_one_partition_count(bsd, can_omit_partitionings, partition_count_cutoff, 3, par_tab3, canonical_patterns);
-	build_partition_table_for_one_partition_count(bsd, can_omit_partitionings, partition_count_cutoff, 4, par_tab4, canonical_patterns);
-
-	delete[] canonical_patterns;
-}
+//void init_partition_tables(block_size_descriptor& bsd, bool can_omit_partitionings, unsigned int partition_count_cutoff)
+//{
+//	//partition_info* par_tab2 = bsd.partitionings;
+//	//partition_info* par_tab3 = par_tab2 + BLOCK_MAX_PARTITIONINGS;
+//	//partition_info* par_tab4 = par_tab3 + BLOCK_MAX_PARTITIONINGS;
+//	//partition_info* par_tab1 = par_tab4 + BLOCK_MAX_PARTITIONINGS;
+//	//
+//	//generate_one_partition_info_entry(bsd, 1, 0, 0, *par_tab1);
+//	//bsd.partitioning_count_selected[0] = 1;
+//	//bsd.partitioning_count_all[0] = 1;
+//	//
+//	//uint64_t* canonical_patterns = new uint64_t[BLOCK_MAX_PARTITIONINGS * BIT_PATTERN_WORDS];
+//	//
+//	//build_partition_table_for_one_partition_count(bsd, can_omit_partitionings, partition_count_cutoff, 2, par_tab2, canonical_patterns);
+//	//build_partition_table_for_one_partition_count(bsd, can_omit_partitionings, partition_count_cutoff, 3, par_tab3, canonical_patterns);
+//	//build_partition_table_for_one_partition_count(bsd, can_omit_partitionings, partition_count_cutoff, 4, par_tab4, canonical_patterns);
+//	//
+//	//delete[] canonical_patterns;
+//}

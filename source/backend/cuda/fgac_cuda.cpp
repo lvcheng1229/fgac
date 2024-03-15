@@ -21,11 +21,12 @@ if (expr != cudaSuccess)\
 __debugbreak(); \
 }\
 
+//extern "C" void GPUEncodeKernel(dim3 gridSize, dim3 blockSize, uint8_t * outputData, cudaTextureObject_t tex, fgac_contexti * ctx);
+//extern "C" void GPUDecodeKernel(dim3 gridSize, dim3 blockSize, uint8_t* compressedData, uint8_t * decompressedData, fgac_contexti * ctx);
 
+void GPUEncodeKernel(dim3 gridSize, dim3 blockSize, uint8_t * outputData, cudaTextureObject_t tex, fgac_contexti * ctx) {}
+void GPUDecodeKernel(dim3 gridSize, dim3 blockSize, uint8_t* compressedData, uint8_t* decompressedData, fgac_contexti* ctx) {}
 
-
-extern "C" void GPUEncodeKernel(dim3 gridSize, dim3 blockSize, uint8_t * outputData, cudaTextureObject_t tex, fgac_contexti * ctx);
-extern "C" void GPUDecodeKernel(dim3 gridSize, dim3 blockSize, uint8_t* compressedData, uint8_t * decompressedData, fgac_contexti * ctx);
 
 struct astc_header
 {
@@ -58,54 +59,66 @@ void EncodeTest()
 	std::string imagePath("G:/fgac/build/test.jpeg");
 	int width = 0, height = 0, comp = 0;
 	stbi_uc* srcData = stbi_load(imagePath.c_str(), &width, &height, &comp, STBI_rgb_alpha);
-
+	
 	uint32_t texSize = width * height * 4 * sizeof(uint8_t);
-
+	
 	// allocate dest image data on deivce memory
 	float* destData = nullptr;
 	CUDA_VARIFY(cudaMalloc((void**)&destData, texSize));
-
-	fgac_contexti ctx;
-
+	
+	fgac_contexti* ctx = new fgac_contexti();
+	ctx->dim_x = width;
+	ctx->dim_y = height;
+	ctx->bsd.xdim = 4;
+	ctx->bsd.ydim = 4;
+	ctx->config.cw_r_weight = 1;
+	ctx->config.cw_g_weight = 1;
+	ctx->config.cw_b_weight = 1;
+	ctx->config.cw_a_weight = 1;
+	ctx->config.cw_sum_weight = 4;
+	ctx->config.tune_db_limit = 40.5294;
+	ctx->config.tune_candidate_limit = 3;
+	ctx->config.tune_refinement_limit = 3;
+	
 	fgac_contexti* pCtx;
 	CUDA_VARIFY(cudaMalloc((void**)&pCtx, sizeof(fgac_contexti)));
-	CUDA_VARIFY(cudaMemcpy(pCtx, &ctx, sizeof(fgac_contexti), cudaMemcpyHostToDevice));
-
+	CUDA_VARIFY(cudaMemcpy(pCtx, ctx, sizeof(fgac_contexti), cudaMemcpyHostToDevice));
+	
 	// create texture format
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<uchar4>();
-
+	
 	// allocate input texture data
 	cudaArray* cuArray;
 	CUDA_VARIFY(cudaMallocArray(&cuArray, &channelDesc, width, height));
 	CUDA_VARIFY(cudaMemcpyToArray(cuArray, 0, 0, srcData, texSize, cudaMemcpyHostToDevice));
-
+	
 	cudaResourceDesc texResDesc;
 	memset(&texResDesc, 0, sizeof(cudaResourceDesc));
-
+	
 	texResDesc.resType = cudaResourceTypeArray;
 	texResDesc.res.array.array = cuArray;
-
+	
 	cudaTextureDesc texDesc;
 	memset(&texDesc, 0, sizeof(cudaTextureDesc));
-
+	
 	texDesc.normalizedCoords = true;
 	texDesc.filterMode = cudaFilterModePoint;
 	texDesc.addressMode[0] = cudaAddressModeWrap;
 	texDesc.addressMode[1] = cudaAddressModeWrap;
 	texDesc.readMode = cudaReadModeElementType;
-
+	
 	cudaTextureObject_t texObject;
 	CUDA_VARIFY(cudaCreateTextureObject(&texObject, &texResDesc, &texDesc, NULL));
-
+	
 	dim3 dimBlock(8, 8, 1);
 	dim3 dimGrid(width / dimBlock.x, height / dimBlock.y, 1);
-
+	printf("aa");
 	GPUEncodeKernel(dimGrid, dimBlock, (uint8_t*)destData, texObject, pCtx);
-
+	
 	CUDA_VARIFY(cudaDeviceSynchronize());
 	float* hOutputData = (float*)malloc(texSize);
 	CUDA_VARIFY(cudaMemcpy(hOutputData, destData, texSize, cudaMemcpyDeviceToHost));
-
+	
 	std::string outImagePath("G:/fgac/build/otest.tga");
 	stbi_write_tga(outImagePath.c_str(), width, height, 4, hOutputData);
 }
@@ -182,6 +195,7 @@ void DecodeTest()
 
 void CudaTestFunc()
 {
-	CUDA_VARIFY(cudaSetDevice(0));
-DecodeTest();
+	CudaTestCPUVersion();
+	//CUDA_VARIFY(cudaSetDevice(0));
+	//EncodeTest();
 }
