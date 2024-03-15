@@ -30,6 +30,12 @@ void cuda_backend_test()
 	uint32_t texSize = width * height * 4 * sizeof(uint8_t);
 
 	fgac_contexti* ctx = new fgac_contexti();
+	ctx->config.cw_sum_weight = 4;
+	ctx->config.tune_db_limit = 2254.6614;
+	
+	//tobe init
+	//block_mode_count_1plane_selected
+	
 	init_block_size_descriptor(blockx, blocky, ctx->bsd);
 
 	float4 data_min(1e20, 1e20, 1e20, 1e20);
