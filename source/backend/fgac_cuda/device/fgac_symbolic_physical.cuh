@@ -1,7 +1,9 @@
 #ifndef _FGAC_SYMBOLIC_PHYSICAL_CUH_
 #define _FGAC_SYMBOLIC_PHYSICAL_CUH_
-#include "fgac_internal.cuh"
+#include "fgac_decvice_common.cuh"
 #include "fgac_integer_sequence.cuh"
+#include "fgac_weight_quant_xfer_tables.cuh"
+#include "fgac_quantization.cuh"
 
 // There is currently no attempt to coalesce larger void-extents
 __constant__ uint8_t cbytes[8]{ 0xFC, 0xFD, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
@@ -15,6 +17,7 @@ __device__ int bitrev8(int p)
 }
 
 __device__ void symbolic_to_physical(
+	const image_block& blk,
 	const block_size_descriptor& bsd,
 	const symbolic_compressed_block& scb,
 	uint8_t pcb[16]
@@ -41,16 +44,14 @@ __device__ void symbolic_to_physical(
 	// They are encoded as an ordinary integer-sequence, then bit-reversed
 	uint8_t weightbuf[16]{ 0 };
 
-	const block_mode& bm = get_block_mode(&bsd,scb.block_mode);
-	const decimation_info& di = get_decimation_info(&bsd,bm.decimation_mode);
-	int weight_count = di.weight_count;
-	quant_method weight_quant_method = bm.get_weight_quant_mode();
-	float weight_quant_levels = static_cast<float>(get_quant_level(weight_quant_method));
-	int is_dual_plane = bm.is_dual_plane;
+	const block_mode& bm = get_block_mode(bsd,scb.block_mode);
+	int weight_count = blk.texel_count;
+	quant_method weight_quant_method = quant_method(bm.quant_mode);
+	float weight_quant_levels = float(get_quant_level(weight_quant_method));
 
-	const auto& qat = bsd.quant_and_xfer_tables[weight_quant_method];
+	const auto& qat = quant_and_xfer_tables[weight_quant_method];
 
-	int real_weight_count = is_dual_plane ? 2 * weight_count : weight_count;
+	int real_weight_count = weight_count;
 
 	int bits_for_weights = get_ise_sequence_bitcount(real_weight_count, weight_quant_method);
 
@@ -79,26 +80,22 @@ __device__ void symbolic_to_physical(
 
 	// Encode partition index and color endpoint types for blocks with 2+ partitions
 	{
-		write_bits(scb.color_formats[0], 4, 13, pcb);
+		write_bits(scb.color_formats, 4, 13, pcb);
 	}
 
 	// Encode the color components
 	uint8_t values_to_encode[32];
 	int valuecount_to_encode = 0;
 
-	const uint8_t* pack_table = bsd.color_uquant_to_scrambled_pquant_tables[scb.quant_mode - QUANT_6];
-	for (unsigned int i = 0; i < scb.partition_count; i++)
+	const uint8_t* pack_table = color_uquant_to_scrambled_pquant_tables[scb.quant_mode - QUANT_6];
+	int vals = 2 * (scb.color_formats >> 2) + 2;
+	for (int j = 0; j < vals; j++)
 	{
-		int vals = 2 * (scb.color_formats[i] >> 2) + 2;
-		for (int j = 0; j < vals; j++)
-		{
-			values_to_encode[j + valuecount_to_encode] = pack_table[scb.color_values[i][j]];
-		}
-		valuecount_to_encode += vals;
+		values_to_encode[j + valuecount_to_encode] = pack_table[scb.color_values[j]];
 	}
+	valuecount_to_encode += vals;
 
-	encode_ise(scb.quant_mode, valuecount_to_encode, values_to_encode, pcb,
-		scb.partition_count == 1 ? 17 : 19 + PARTITION_INDEX_BITS);
+	encode_ise(scb.quant_mode, valuecount_to_encode, values_to_encode, pcb, 17);
 }
 
 #endif

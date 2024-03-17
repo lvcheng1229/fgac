@@ -1,7 +1,7 @@
 #ifndef _FGAC_INT_SEQUENCE_CUH_
 #define _FGAC_INT_SEQUENCE_CUH_
 
-#include "fgac_internal.cuh"
+#include "fgac_decvice_common.cuh"
 
 struct ise_size
 {
@@ -294,7 +294,7 @@ __device__ void write_bits(
 	unsigned int value,
 	unsigned int bitcount,
 	unsigned int bitoffset,
-	uint8_t ptr[2]
+	uint8_t* ptr
 ) {
 	unsigned int mask = (1 << bitcount) - 1;
 	value &= mask;

@@ -2,6 +2,8 @@
 #define _FGAC_IDEAL_ENDPOINTS_AND_WEIGHTS_CUH_
 #include "fgac_decvice_common.cuh"
 #include "fgac_averages_and_directions.cuh"
+#include "fgac_quantization.cuh"
+#include "fgac_weight_quant_xfer_tables.cuh"
 
 __device__ void compute_ideal_colors_and_weights_4_comp(const image_block& blk, endpoints_and_weights& ei)
 {
@@ -14,7 +16,7 @@ __device__ void compute_ideal_colors_and_weights_4_comp(const image_block& blk, 
 	}
 
 	float length_dir = length(dir);
-	line4 line{ blk.data_mean, length_dir < 1e-10 ? float4(0.5) : normalize(dir) };
+	line4 line{ blk.data_mean, length_dir < 1e-10 ? normalize(make_float4(1.0)) : normalize(dir) };
 	float lowparam{ 1e10f };
 	float highparam{ -1e10f };
 
@@ -78,19 +80,79 @@ __device__ float compute_error_of_weight_set_1plane(
 	return error_summa;
 }
 
+// The available quant levels, stored with a minus 1 bias
+__constant__ float quant_levels_m1[12]{
+	1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 7.0f, 9.0f, 11.0f, 15.0f, 19.0f, 23.0f, 31.0f
+};
+
 __device__ void compute_quantized_weights_for_decimation(
 	const block_size_descriptor& bsd,
-	uint8_t* quantized_weight_set,
+	const endpoints_and_weights& ei,
+	float* weight_set_out,
 	quant_method quant_level
 )
 {
-	if (quant_level <= QUANT_16)
-	{
+	int weight_count = bsd.texel_count;
+	const quant_and_transfer_table& qat = quant_and_xfer_tables[quant_level];
+	
+	uint quant_level_map = get_quant_level(quant_level);
+	int steps_m1(quant_level_map - 1);
+	float quant_level_m1 = quant_levels_m1[quant_level];
 
-	}
-	else
-	{
+	float rscale = 1.0f / 64.0f;
 
+	for (int i = 0; i < weight_count; i++)
+	{
+		float ix = ei.weights[i];
+		ix = clamp(ix, 0.0, 1.0);
+
+		// Look up the two closest indexes and return the one that was closest(quant)
+		float ix1 = ix * quant_level_m1;
+
+		int weightl = int(ix1);
+		int weighth = min(weightl + 1, steps_m1);
+
+		float ixl = qat.quant_to_unquant[weightl];
+		float ixh = qat.quant_to_unquant[weighth];
+
+		if (ixl + ixh < 128.0f * ix)
+		{
+			ixl = ixh;
+		}
+		else
+		{
+			ixl = ixl;
+		}
+
+		// Invert the weight-scaling that was done initially
+		weight_set_out[i] = ixl * rscale;
 	}
+}
+
+__device__ void recompute_ideal_colors_1plane(
+	const image_block& blk,
+	float4& rgbs_vectors)
+{
+	float4 rgba_sum(blk.data_mean);
+	float4 scale_dir = normalize(make_float4(rgba_sum.x, rgba_sum.y, rgba_sum.z, 0));
+	
+	float scale_max = 0.0f;
+	float scale_min = 1e10f;
+
+	for (unsigned int j = 0; j < blk.texel_count; j++)
+	{
+		float4 rgba = make_float4(blk.data_r[j], blk.data_g[j], blk.data_b[j], blk.data_a[j]);
+		float scale = dot(float3(scale_dir.x, scale_dir.x, scale_dir.x), float3(rgba.x, rgba.y, rgba.z));
+		scale_min = min(scale, scale_min);
+		scale_max = max(scale, scale_max);
+	}
+
+	// Initialize the luminance and scale vectors with a reasonable default
+	float scalediv = scale_min / max(scale_max, 1e-10f);
+	scalediv = clamp(scalediv,0.0,1.0);
+
+
+	float4 sds = scale_dir * scale_max;
+	rgbs_vectors = make_float4(sds.x, sds.y, sds.z, scalediv);
 }
 #endif

@@ -1,7 +1,61 @@
 #ifndef _FGAC_DECOMPRESS_SYMBOLIC_CUH_
 #define _FGAC_DECOMPRESS_SYMBOLIC_CUH_
-#include "fgac_internal.cuh"
-#include "fgac_compress_texture.h"
+#include "fgac_decvice_common.cuh"
+
+__device__ void rgb_scale_unpack(
+	int4 input0,
+	int scale,
+	int4& output0,
+	int4& output1
+) {
+	output1 = input0;
+	output1.w = 255;
+
+	int4 scaled_value = input0 * scale;
+
+	output0 = int4(scaled_value.x >> 8, scaled_value.y >> 8, scaled_value.z >> 8, scaled_value.w >> 8);
+	output0.w = 255;
+}
+
+__device__ void rgb_scale_alpha_unpack(
+	int4 input0,
+	uint8_t alpha1,
+	uint8_t scale,
+	int4& output0,
+	int4& output1
+) {
+	output1 = input0;
+	output1.w = alpha1;
+
+	int4 scaled_value = input0 * scale;
+	output0 = int4(scaled_value.x >> 8, scaled_value.y >> 8, scaled_value.z >> 8, scaled_value.w >> 8);
+	output0.w = input0.w;
+}
+
+__device__ void luminance_unpack(
+	const uint8_t input[2],
+	int4& output0,
+	int4& output1
+) {
+	int lum0 = input[0];
+	int lum1 = input[1];
+	output0 = int4(lum0, lum0, lum0, 255);
+	output1 = int4(lum1, lum1, lum1, 255);
+}
+
+__device__ void luminance_alpha_unpack(
+	const uint8_t input[4],
+	int4& output0,
+	int4& output1
+) {
+	int lum0 = input[0];
+	int lum1 = input[1];
+	int alpha0 = input[2];
+	int alpha1 = input[3];
+	output0 = int4(lum0, lum0, lum0, alpha0);
+	output1 = int4(lum1, lum1, lum1, alpha1);
+}
+
 
 __device__ void unpack_color_endpoints(
 	int format,
@@ -25,43 +79,34 @@ __device__ void unpack_color_endpoints(
 		output0 = input0q;
 		output1 = input1q;
 	}
-	else
+	else if(format == FMT_RGB_SCALE)
 	{
-#if CUDA_DEBUG
-
-#endif
+		int4 input0q(input[0], input[1], input[2], 0);
+		uint8_t scale = input[3];
+		rgb_scale_unpack(input0q, scale, output0, output1);
+	}
+	else if (format == FMT_RGB_SCALE_ALPHA)
+	{
+		int4 input0q(input[0], input[1], input[2], input[4]);
+		uint8_t alpha1q = input[5];
+		uint8_t scaleq = input[3];
+		rgb_scale_alpha_unpack(input0q, alpha1q, scaleq, output0, output1);
+	}
+	else if (format == FMT_LUMINANCE)
+	{
+		luminance_unpack(input, output0, output1);
+	}
+	else if (format == FMT_LUMINANCE_ALPHA)
+	{
+		luminance_alpha_unpack(input, output0, output1);
 	}
 	output0 = int4(output0.x * 257, output0.y * 257, output0.z * 257, output0.w * 257);
 	output1 = int4(output1.x * 257, output1.y * 257, output1.z * 257, output1.w * 257);
 }
 
-__device__ void unpack_weights(
-	const block_size_descriptor& bsd,
-	const symbolic_compressed_block& scb,
-	const decimation_info& di,
-	bool is_dual_plane,
-	int weights_plane1[BLOCK_MAX_TEXELS],
-	int weights_plane2[BLOCK_MAX_TEXELS]
-) 
-{
-	for (unsigned int i = 0; i < bsd.texel_count; i ++)
-	{
-		int summed_value(8);
-		int weight_count(di.texel_weight_count[i]);
-		
-		for (int j = 0; j < weight_count; j++)
-		{
-			int texel_weights(di.texel_weights_tr[j][i]);
-			int texel_weights_int(di.texel_weight_contribs_int_tr[j][i]);
 
-			summed_value += scb.weights[texel_weights] * texel_weights_int;
-		}
-
-		weights_plane1[i] = summed_value >> 4;
-	}
-}
 __device__ float compute_symbolic_block_difference_1plane_1partition(
-	const fgac_config& config,
+	const endpoints_and_weights& ei,
 	const block_size_descriptor& bsd,
 	const symbolic_compressed_block& scb,
 	const image_block& blk)
@@ -72,12 +117,12 @@ __device__ float compute_symbolic_block_difference_1plane_1partition(
 		return ERROR_CALC_DEFAULT;
 	}
 
-	// Get the appropriate block descriptor
-	const block_mode& bm = get_block_mode(&bsd,scb.block_mode);
-	const decimation_info& di = get_decimation_info(&bsd,bm.decimation_mode);
 
 	int plane1_weights[BLOCK_MAX_TEXELS];
-	unpack_weights(bsd, scb, di, false, plane1_weights, nullptr);
+	for (unsigned int i = 0; i < bsd.texel_count; i++)
+	{
+		plane1_weights[i] = ei.weights[i] * 64;
+	}
 
 	// Decode the color endpoints for this partition
 	int4 ep0;
@@ -86,13 +131,13 @@ __device__ float compute_symbolic_block_difference_1plane_1partition(
 	bool a_lns;
 
 	unpack_color_endpoints(
-		scb.color_formats[0],
-		scb.color_values[0],
+		scb.color_formats,
+		scb.color_values,
 		ep0, ep1);
-	
+
 	float summa = 0;
 	unsigned int texel_count = bsd.texel_count;
-	for (unsigned int i = 0; i < texel_count; i ++)
+	for (unsigned int i = 0; i < texel_count; i++)
 	{
 		// Compute EP1 contribution
 		int weight1 = plane1_weights[i];
@@ -102,7 +147,7 @@ __device__ float compute_symbolic_block_difference_1plane_1partition(
 		int ep1_a = ep1.w * weight1;
 
 		// Compute EP0 contribution
-		int weight0 = int(64) - weight0;
+		int weight0 = int(64) - weight1;
 		int ep0_r = ep0.x * weight0;
 		int ep0_g = ep0.y * weight0;
 		int ep0_b = ep0.z * weight0;
@@ -136,10 +181,7 @@ __device__ float compute_symbolic_block_difference_1plane_1partition(
 		color_error_b = color_error_b * color_error_b;
 		color_error_a = color_error_a * color_error_a;
 
-		float metric = color_error_r * blk.channel_weight.x
-			+ color_error_g * blk.channel_weight.y
-			+ color_error_b * blk.channel_weight.z
-			+ color_error_a * blk.channel_weight.w;
+		float metric = color_error_r + color_error_g + color_error_b + color_error_a;
 
 		// Mask off bad lanes
 		summa += metric;
